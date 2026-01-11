@@ -1,2 +1,37 @@
 # Local deployment plans (not tracked in git)
 LOCAL_DEPLOYMENT_PLANS/
+
+# CI/CD pipelines (private)
+.buildkite/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Prisma
+prisma/migrations/**/migration_lock.toml
