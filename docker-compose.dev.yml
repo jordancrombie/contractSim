@@ -1,0 +1,26 @@
+# Docker Compose override for ContractSim development
+# Uses *-dev.banksim.ca domains and connects to BSIM dev environment
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Prerequisites:
+#   - BSIM dev environment running (bsim_bsim-network exists)
+#   - ContractSim database created in bsim-db PostgreSQL
+#
+# To create the database (run once):
+#   docker exec bsim-db psql -U bsim -c "CREATE DATABASE contractsim;"
+
+services:
+  contractsim:
+    container_name: contractsim-dev
+    environment:
+      NODE_ENV: development
+      # Database - uses BSIM's PostgreSQL with separate database
+      DATABASE_URL: postgresql://bsim:bsim_dev_password@bsim-db:5432/contractsim
+      # External Service URLs (development)
+      WSIM_URL: http://bsim-wsim-backend:3007
+      BSIM_URL: http://bsim-backend:3001
+      TRANSFERSIM_URL: http://bsim-transfersim:3010
+      # Webhook URLs (for receiving callbacks)
+      WEBHOOK_BASE_URL: http://contractsim-dev:3020

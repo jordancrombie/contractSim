@@ -1,0 +1,51 @@
+# Docker Compose for ContractSim
+# Integrates with BSIM ecosystem via external bsim-network
+#
+# Usage with BSIM dev environment:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  # ContractSim API
+  contractsim:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contractsim
+    environment:
+      NODE_ENV: production
+      PORT: 3020
+      # Database - uses BSIM's PostgreSQL with separate database
+      DATABASE_URL: postgresql://bsim:bsim_dev_password@bsim-db:5432/contractsim
+      # Service Authentication (S2S API Keys)
+      WSIM_API_KEY: ${WSIM_API_KEY:-}
+      BSIM_API_KEY: ${BSIM_API_KEY:-99c33341e8817841833a6140027b83542f81e5d509b55d03d2fe7a2be212e72a}
+      TRANSFERSIM_API_KEY: ${TRANSFERSIM_API_KEY:-}
+      # External Service URLs (production)
+      WSIM_URL: https://wsim.banksim.ca
+      BSIM_URL: https://banksim.ca
+      TRANSFERSIM_URL: https://transfer.banksim.ca
+      # Contract Defaults
+      DEFAULT_FUNDING_TIMEOUT_HOURS: 48
+      MAX_CONTRACT_VALUE: 100.00
+      DEFAULT_CURRENCY: CAD
+    networks:
+      - bsim-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3020/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        npx prisma generate &&
+        npx prisma migrate deploy &&
+        node dist/index.js
+      "
+
+networks:
+  bsim-network:
+    external: true
+    name: bsim_bsim-network
