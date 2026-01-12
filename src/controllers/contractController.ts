@@ -79,14 +79,14 @@ export class ContractController {
 
       res.status(201).json({
         contract_id: contract.id,
-        status: contract.status,
+        status: contract.status.toLowerCase(),
         title: contract.title,
         total_pot: contract.totalPot.toString(),
         currency: contract.currency,
         parties: contract.parties.map(p => ({
           wallet_id: p.walletId,
           display_name: p.displayName,
-          role: p.role,
+          role: p.role.toLowerCase(),
           stake: p.stakeAmount.toString(),
           accepted: p.accepted,
           funded: p.funded,
@@ -112,19 +112,19 @@ export class ContractController {
 
       res.json({
         contract_id: contract.id,
-        type: contract.type,
-        status: contract.status,
+        type: contract.type.toLowerCase(),
+        status: contract.status.toLowerCase(),
         title: contract.title,
         description: contract.description,
         total_pot: contract.totalPot.toString(),
         currency: contract.currency,
-        escrow_type: contract.escrowType,
-        settlement_type: contract.settlementType,
+        escrow_type: contract.escrowType.toLowerCase(),
+        settlement_type: contract.settlementType.toLowerCase(),
         parties: contract.parties.map(p => ({
           wallet_id: p.walletId,
           bank_id: p.bankId,
           display_name: p.displayName,
-          role: p.role,
+          role: p.role.toLowerCase(),
           stake: p.stakeAmount.toString(),
           accepted: p.accepted,
           accepted_at: p.acceptedAt?.toISOString(),
@@ -139,10 +139,10 @@ export class ContractController {
           event_id: c.eventId,
           predicate: {
             field: c.predicateField,
-            operator: c.predicateOperator,
+            operator: c.predicateOperator.toLowerCase(),
             value: c.predicateValue,
           },
-          status: c.status,
+          status: c.status.toLowerCase(),
           result: c.result,
         })),
         expires_at: contract.expiresAt.toISOString(),
@@ -190,8 +190,8 @@ export class ContractController {
       res.json({
         contracts: contracts.map(c => ({
           contract_id: c.id,
-          type: c.type,
-          status: c.status,
+          type: c.type.toLowerCase(),
+          status: c.status.toLowerCase(),
           title: c.title,
           total_pot: c.totalPot.toString(),
           currency: c.currency,
@@ -226,7 +226,7 @@ export class ContractController {
 
       res.json({
         contract_id: contract.id,
-        status: contract.status,
+        status: contract.status.toLowerCase(),
         message: 'Contract accepted',
         all_accepted: contract.parties.every(p => p.accepted),
       });
@@ -257,7 +257,7 @@ export class ContractController {
 
       res.json({
         contract_id: contract.id,
-        status: contract.status,
+        status: contract.status.toLowerCase(),
         message: 'Funding recorded',
         all_funded: contract.parties.every(p => p.funded),
       });
@@ -284,7 +284,7 @@ export class ContractController {
 
       res.json({
         contract_id: contract.id,
-        status: contract.status,
+        status: contract.status.toLowerCase(),
         message: 'Contract cancelled',
       });
     } catch (err) {

@@ -1,0 +1,1032 @@
+openapi: 3.0.3
+info:
+  title: ContractSim API
+  description: |
+    Conditional Payment Coordination Service API.
+
+    ContractSim enables conditional payments (wagers, escrow, milestones) between parties.
+    It coordinates with BSIM for escrow holds and TransferSim for settlements.
+
+    ## Authentication
+
+    All API requests require Service-to-Service (S2S) authentication via the `X-API-Key` header.
+
+    - **WSIM**: Primary client for mobile app requests (requires `X-Wallet-Id` header)
+    - **BSIM**: For escrow and funding operations
+    - **TransferSim**: For settlement confirmations
+
+    ## Contract Lifecycle
+
+    1. **DRAFT** → Created, waiting for counterparty acceptance
+    2. **PROPOSED** → All parties accepted, waiting for funding
+    3. **FUNDING** → Escrow holds being created
+    4. **ACTIVE** → Fully funded, waiting for condition resolution
+    5. **SETTLING** → Conditions resolved, settlement in progress
+    6. **SETTLED** → Complete, funds transferred
+
+  version: 1.0.0
+  contact:
+    name: ContractSim Team
+    email: contractsim@banksim.ca
+
+servers:
+  - url: https://contract-dev.banksim.ca
+    description: Development environment
+  - url: http://contractsim-dev:3020
+    description: Internal Docker network
+
+tags:
+  - name: Contracts
+    description: Contract CRUD and lifecycle operations
+  - name: Oracles
+    description: Oracle and event data
+  - name: Webhooks
+    description: Callbacks from BSIM and TransferSim
+  - name: Health
+    description: Service health checks
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns service health status and database connectivity
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: Returns service readiness status
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+
+  /api/v1/contracts:
+    post:
+      tags:
+        - Contracts
+      summary: Create a new contract
+      description: |
+        Creates a new conditional contract between parties.
+        Requires WSIM authentication with wallet context.
+      operationId: createContract
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WalletId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContractRequest'
+            example:
+              type: WAGER
+              title: "Team A vs Team B"
+              description: "Who will win the game?"
+              parties:
+                - walletId: "WLLT-ABC123"
+                  bankId: "bsim"
+                  displayName: "Alice"
+                  role: "CREATOR"
+                  stakeAmount: 10.00
+                - walletId: "WLLT-DEF456"
+                  bankId: "bsim"
+                  displayName: "Bob"
+                  role: "COUNTERPARTY"
+                  stakeAmount: 10.00
+              conditions:
+                - oracleId: "test_oracle"
+                  eventType: "game_outcome"
+                  eventId: "GAME-001"
+                  predicateField: "winner"
+                  predicateOperator: "EQUALS"
+                  predicateValue: "team_a"
+              expiresAt: "2025-01-15T00:00:00Z"
+              fundingDeadline: "2025-01-12T00:00:00Z"
+      responses:
+        '201':
+          description: Contract created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateContractResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags:
+        - Contracts
+      summary: List contracts
+      description: |
+        Returns contracts for the authenticated user.
+        Requires WSIM authentication with wallet context.
+      operationId: listContracts
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WalletId'
+        - name: status
+          in: query
+          description: Filter by status (comma-separated)
+          schema:
+            type: string
+            example: "DRAFT,PROPOSED,ACTIVE"
+        - name: type
+          in: query
+          description: Filter by contract type
+          schema:
+            $ref: '#/components/schemas/ContractType'
+        - name: limit
+          in: query
+          description: Number of results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Offset for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of contracts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListContractsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/contracts/{id}:
+    get:
+      tags:
+        - Contracts
+      summary: Get contract details
+      description: Returns full contract details including parties and conditions
+      operationId: getContract
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WalletId'
+        - $ref: '#/components/parameters/ContractId'
+      responses:
+        '200':
+          description: Contract details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/contracts/{id}/accept:
+    post:
+      tags:
+        - Contracts
+      summary: Accept a contract
+      description: |
+        Accepts a contract on behalf of the authenticated user.
+        When all parties accept, contract transitions to PROPOSED.
+      operationId: acceptContract
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WalletId'
+        - $ref: '#/components/parameters/ContractId'
+      responses:
+        '200':
+          description: Contract accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptContractResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/contracts/{id}/fund:
+    post:
+      tags:
+        - Contracts
+      summary: Record funding
+      description: |
+        Records that a party has funded their stake via escrow.
+        **BSIM only** - called when escrow hold is created.
+      operationId: recordFunding
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordFundingRequest'
+      responses:
+        '200':
+          description: Funding recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordFundingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/contracts/{id}/cancel:
+    post:
+      tags:
+        - Contracts
+      summary: Cancel a contract
+      description: |
+        Cancels a contract. Only allowed in DRAFT or PROPOSED status.
+        Funded contracts cannot be cancelled (use dispute process).
+      operationId: cancelContract
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WalletId'
+        - $ref: '#/components/parameters/ContractId'
+      responses:
+        '200':
+          description: Contract cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelContractResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/oracles:
+    get:
+      tags:
+        - Oracles
+      summary: List available oracles
+      description: Returns list of registered oracles and their supported event types
+      operationId: listOracles
+      responses:
+        '200':
+          description: List of oracles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListOraclesResponse'
+
+  /api/v1/oracles/test/events/upcoming:
+    get:
+      tags:
+        - Oracles
+      summary: Get upcoming test oracle events
+      description: Returns upcoming events from the test oracle (5-minute game cycles)
+      operationId: getUpcomingTestEvents
+      responses:
+        '200':
+          description: List of upcoming events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpcomingEventsResponse'
+
+  /api/v1/oracles/test/events/{eventId}:
+    get:
+      tags:
+        - Oracles
+      summary: Get test oracle event
+      description: Returns details for a specific test oracle event
+      operationId: getTestEvent
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OracleEvent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/oracles/test/resolve:
+    post:
+      tags:
+        - Oracles
+      summary: Force resolve test event
+      description: |
+        Manually resolves a test oracle event (for testing purposes).
+        Requires service authentication.
+      operationId: forceResolveTestEvent
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_id
+                - winner
+              properties:
+                event_id:
+                  type: string
+                winner:
+                  type: string
+                  enum: [team_a, team_b]
+      responses:
+        '200':
+          description: Event resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  event_id:
+                    type: string
+                  winner:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /webhooks/bsim:
+    post:
+      tags:
+        - Webhooks
+      summary: BSIM webhook endpoint
+      description: |
+        Receives escrow events from BSIM.
+        **BSIM only** - authenticated via X-API-Key.
+      operationId: bsimWebhook
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BsimWebhookPayload'
+      responses:
+        '200':
+          description: Webhook received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                  event_type:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /webhooks/transfersim:
+    post:
+      tags:
+        - Webhooks
+      summary: TransferSim webhook endpoint
+      description: |
+        Receives settlement events from TransferSim.
+        **TransferSim only** - authenticated via X-API-Key.
+      operationId: transfersimWebhook
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferSimWebhookPayload'
+      responses:
+        '200':
+          description: Webhook received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                  event_type:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Service-to-Service API key
+
+  parameters:
+    WalletId:
+      name: X-Wallet-Id
+      in: header
+      description: User's wallet ID (required for WSIM requests)
+      required: false
+      schema:
+        type: string
+        example: "WLLT-ABC123"
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: Unique key for idempotent requests
+      required: false
+      schema:
+        type: string
+        format: uuid
+
+    ContractId:
+      name: id
+      in: path
+      description: Contract UUID
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    ContractType:
+      type: string
+      enum: [WAGER, ESCROW, MILESTONE, CUSTOM]
+
+    ContractStatus:
+      type: string
+      enum: [DRAFT, PROPOSED, FUNDING, ACTIVE, SETTLING, SETTLED, EXPIRED, CANCELLED, DISPUTED]
+
+    PartyRole:
+      type: string
+      enum: [CREATOR, COUNTERPARTY]
+
+    EscrowType:
+      type: string
+      enum: [FULL, PARTIAL, NONE]
+
+    SettlementType:
+      type: string
+      enum: [WINNER_TAKES_ALL, PROPORTIONAL, CUSTOM]
+
+    PredicateOperator:
+      type: string
+      enum: [EQUALS, NOT_EQUALS, GREATER_THAN, LESS_THAN, CONTAINS, IN]
+
+    ConditionStatus:
+      type: string
+      enum: [PENDING, RESOLVED, DISPUTED]
+
+    CreateContractRequest:
+      type: object
+      required:
+        - type
+        - title
+        - parties
+        - conditions
+        - expiresAt
+      properties:
+        type:
+          $ref: '#/components/schemas/ContractType'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        parties:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: object
+            required:
+              - walletId
+              - bankId
+              - displayName
+              - role
+              - stakeAmount
+            properties:
+              walletId:
+                type: string
+              bankId:
+                type: string
+              displayName:
+                type: string
+              role:
+                $ref: '#/components/schemas/PartyRole'
+              stakeAmount:
+                type: number
+                minimum: 0.01
+                maximum: 100
+        conditions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - oracleId
+              - eventType
+              - eventId
+              - predicateField
+              - predicateOperator
+              - predicateValue
+            properties:
+              oracleId:
+                type: string
+              eventType:
+                type: string
+              eventId:
+                type: string
+              predicateField:
+                type: string
+              predicateOperator:
+                type: string
+              predicateValue:
+                type: string
+        escrowType:
+          $ref: '#/components/schemas/EscrowType'
+        settlementType:
+          $ref: '#/components/schemas/SettlementType'
+        expiresAt:
+          type: string
+          format: date-time
+        fundingDeadline:
+          type: string
+          format: date-time
+
+    CreateContractResponse:
+      type: object
+      properties:
+        contract_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ContractStatus'
+        title:
+          type: string
+        total_pot:
+          type: string
+        currency:
+          type: string
+        parties:
+          type: array
+          items:
+            type: object
+            properties:
+              wallet_id:
+                type: string
+              display_name:
+                type: string
+              role:
+                $ref: '#/components/schemas/PartyRole'
+              stake:
+                type: string
+              accepted:
+                type: boolean
+              funded:
+                type: boolean
+        conditions_count:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+        funding_deadline:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    ContractDetails:
+      type: object
+      properties:
+        contract_id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/ContractType'
+        status:
+          $ref: '#/components/schemas/ContractStatus'
+        title:
+          type: string
+        description:
+          type: string
+        total_pot:
+          type: string
+        currency:
+          type: string
+        escrow_type:
+          $ref: '#/components/schemas/EscrowType'
+        settlement_type:
+          $ref: '#/components/schemas/SettlementType'
+        parties:
+          type: array
+          items:
+            type: object
+            properties:
+              wallet_id:
+                type: string
+              bank_id:
+                type: string
+              display_name:
+                type: string
+              role:
+                $ref: '#/components/schemas/PartyRole'
+              stake:
+                type: string
+              accepted:
+                type: boolean
+              accepted_at:
+                type: string
+                format: date-time
+              funded:
+                type: boolean
+              funded_at:
+                type: string
+                format: date-time
+              escrow_id:
+                type: string
+        conditions:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              oracle_id:
+                type: string
+              event_type:
+                type: string
+              event_id:
+                type: string
+              predicate:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  operator:
+                    type: string
+                  value:
+                    type: string
+              status:
+                $ref: '#/components/schemas/ConditionStatus'
+              result:
+                type: boolean
+        expires_at:
+          type: string
+          format: date-time
+        funding_deadline:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        accepted_at:
+          type: string
+          format: date-time
+        funded_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+        settled_at:
+          type: string
+          format: date-time
+
+    ListContractsResponse:
+      type: object
+      properties:
+        contracts:
+          type: array
+          items:
+            type: object
+            properties:
+              contract_id:
+                type: string
+                format: uuid
+              type:
+                $ref: '#/components/schemas/ContractType'
+              status:
+                $ref: '#/components/schemas/ContractStatus'
+              title:
+                type: string
+              total_pot:
+                type: string
+              currency:
+                type: string
+              parties_count:
+                type: integer
+              expires_at:
+                type: string
+                format: date-time
+              created_at:
+                type: string
+                format: date-time
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    AcceptContractResponse:
+      type: object
+      properties:
+        contract_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ContractStatus'
+        message:
+          type: string
+        all_accepted:
+          type: boolean
+
+    RecordFundingRequest:
+      type: object
+      required:
+        - wallet_id
+        - escrow_id
+        - amount
+      properties:
+        wallet_id:
+          type: string
+        escrow_id:
+          type: string
+        amount:
+          type: number
+
+    RecordFundingResponse:
+      type: object
+      properties:
+        contract_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ContractStatus'
+        message:
+          type: string
+        all_funded:
+          type: boolean
+
+    CancelContractResponse:
+      type: object
+      properties:
+        contract_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ContractStatus'
+        message:
+          type: string
+
+    ListOraclesResponse:
+      type: object
+      properties:
+        oracles:
+          type: array
+          items:
+            type: object
+            properties:
+              oracle_id:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              event_types:
+                type: array
+                items:
+                  type: string
+              is_active:
+                type: boolean
+
+    UpcomingEventsResponse:
+      type: object
+      properties:
+        oracle_id:
+          type: string
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              event_id:
+                type: string
+              title:
+                type: string
+              teams:
+                type: array
+                items:
+                  type: string
+              starts_at:
+                type: string
+                format: date-time
+              ends_at:
+                type: string
+                format: date-time
+              status:
+                type: string
+
+    OracleEvent:
+      type: object
+      properties:
+        oracle_id:
+          type: string
+        event_id:
+          type: string
+        title:
+          type: string
+        teams:
+          type: array
+          items:
+            type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            winner:
+              type: string
+            score_a:
+              type: integer
+            score_b:
+              type: integer
+
+    BsimWebhookPayload:
+      type: object
+      required:
+        - event_type
+        - data
+      properties:
+        event_type:
+          type: string
+          enum: [escrow.held, escrow.expired, escrow.released, escrow.returned]
+        data:
+          type: object
+          properties:
+            escrow_id:
+              type: string
+            contract_id:
+              type: string
+            user_id:
+              type: string
+            wallet_id:
+              type: string
+            amount:
+              type: number
+            transfer_reference:
+              type: string
+            reason:
+              type: string
+
+    TransferSimWebhookPayload:
+      type: object
+      required:
+        - event_type
+        - data
+      properties:
+        event_type:
+          type: string
+          enum: [settlement.completed, settlement.failed]
+        data:
+          type: object
+          properties:
+            settlement_id:
+              type: string
+            transfer_id:
+              type: string
+            contract_id:
+              type: string
+            amount:
+              type: number
+            from_wallet_id:
+              type: string
+            to_wallet_id:
+              type: string
+            error:
+              type: string
+            error_message:
+              type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        service:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: string
+
+    ReadinessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready]
+        service:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Authentication required or failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

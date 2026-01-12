@@ -1,0 +1,630 @@
+asyncapi: 2.6.0
+info:
+  title: ContractSim Webhooks
+  version: 1.0.0
+  description: |
+    Webhook events for ContractSim - Conditional Payment Coordination Service.
+
+    ## Overview
+
+    ContractSim exchanges webhooks with three services:
+    - **BSIM**: Receives escrow lifecycle events
+    - **TransferSim**: Receives settlement completion events
+    - **WSIM**: Sends contract lifecycle events for push notifications
+
+    ## Authentication
+
+    All webhooks use HTTP POST with `X-API-Key` header authentication.
+
+    ## Delivery Guarantees
+
+    - **At-least-once** delivery with automatic retries
+    - 3 retry attempts with exponential backoff (1s, 5s, 30s)
+    - Idempotency via unique `event_id` in each payload
+    - Receivers should use `event_id` for deduplication
+
+  contact:
+    name: ContractSim Team
+    email: contractsim@banksim.ca
+
+servers:
+  contractsim:
+    url: https://contract-dev.banksim.ca
+    protocol: https
+    description: ContractSim webhook receiver
+  wsim:
+    url: '{wsim_url}'
+    protocol: https
+    description: WSIM webhook receiver
+
+defaultContentType: application/json
+
+channels:
+  # ============================================
+  # INCOMING: From BSIM
+  # ============================================
+  /webhooks/bsim:
+    description: Webhook endpoint for BSIM escrow events
+    subscribe:
+      operationId: receiveBsimWebhook
+      summary: Receive escrow events from BSIM
+      message:
+        oneOf:
+          - $ref: '#/components/messages/EscrowHeld'
+          - $ref: '#/components/messages/EscrowExpired'
+          - $ref: '#/components/messages/EscrowReleased'
+          - $ref: '#/components/messages/EscrowReturned'
+
+  # ============================================
+  # INCOMING: From TransferSim
+  # ============================================
+  /webhooks/transfersim:
+    description: Webhook endpoint for TransferSim settlement events
+    subscribe:
+      operationId: receiveTransferSimWebhook
+      summary: Receive settlement events from TransferSim
+      message:
+        oneOf:
+          - $ref: '#/components/messages/SettlementCompleted'
+          - $ref: '#/components/messages/SettlementFailed'
+
+  # ============================================
+  # OUTGOING: To WSIM
+  # ============================================
+  /webhooks/contractsim:
+    description: Webhook endpoint on WSIM for contract events
+    publish:
+      operationId: sendContractWebhook
+      summary: Send contract lifecycle events to WSIM
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ContractProposed'
+          - $ref: '#/components/messages/ContractAccepted'
+          - $ref: '#/components/messages/ContractFunded'
+          - $ref: '#/components/messages/ContractOutcome'
+          - $ref: '#/components/messages/ContractSettled'
+          - $ref: '#/components/messages/ContractCancelled'
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Service-to-Service API key
+
+  # ============================================
+  # INCOMING MESSAGES FROM BSIM
+  # ============================================
+  messages:
+    EscrowHeld:
+      name: escrow.held
+      title: Escrow Held
+      summary: Escrow hold successfully created for a party
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/commonHeaders'
+      payload:
+        type: object
+        required:
+          - event_type
+          - data
+        properties:
+          event_type:
+            type: string
+            const: escrow.held
+          data:
+            type: object
+            required:
+              - escrow_id
+              - contract_id
+              - wallet_id
+              - amount
+            properties:
+              escrow_id:
+                type: string
+                description: BSIM escrow hold ID
+              contract_id:
+                type: string
+                format: uuid
+                description: ContractSim contract ID
+              user_id:
+                type: string
+                description: BSIM user ID
+              wallet_id:
+                type: string
+                description: User's wallet ID (e.g., WLLT-ABC123)
+              amount:
+                type: number
+                description: Amount held in escrow
+        examples:
+          - name: Example
+            payload:
+              event_type: escrow.held
+              data:
+                escrow_id: "ESC-123456"
+                contract_id: "550e8400-e29b-41d4-a716-446655440000"
+                user_id: "USR-789"
+                wallet_id: "WLLT-ABC123"
+                amount: 10.00
+
+    EscrowExpired:
+      name: escrow.expired
+      title: Escrow Expired
+      summary: Escrow hold expired and funds returned to user
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/commonHeaders'
+      payload:
+        type: object
+        required:
+          - event_type
+          - data
+        properties:
+          event_type:
+            type: string
+            const: escrow.expired
+          data:
+            type: object
+            required:
+              - escrow_id
+              - contract_id
+              - wallet_id
+            properties:
+              escrow_id:
+                type: string
+              contract_id:
+                type: string
+                format: uuid
+              wallet_id:
+                type: string
+
+    EscrowReleased:
+      name: escrow.released
+      title: Escrow Released
+      summary: Escrow released for settlement
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/commonHeaders'
+      payload:
+        type: object
+        required:
+          - event_type
+          - data
+        properties:
+          event_type:
+            type: string
+            const: escrow.released
+          data:
+            type: object
+            required:
+              - escrow_id
+              - contract_id
+              - transfer_reference
+            properties:
+              escrow_id:
+                type: string
+              contract_id:
+                type: string
+                format: uuid
+              transfer_reference:
+                type: string
+                description: Reference for TransferSim settlement
+
+    EscrowReturned:
+      name: escrow.returned
+      title: Escrow Returned
+      summary: Escrow returned to user (cancellation/refund)
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/commonHeaders'
+      payload:
+        type: object
+        required:
+          - event_type
+          - data
+        properties:
+          event_type:
+            type: string
+            const: escrow.returned
+          data:
+            type: object
+            required:
+              - escrow_id
+              - contract_id
+              - reason
+            properties:
+              escrow_id:
+                type: string
+              contract_id:
+                type: string
+                format: uuid
+              reason:
+                type: string
+                description: Reason for return
+
+    # ============================================
+    # INCOMING MESSAGES FROM TRANSFERSIM
+    # ============================================
+    SettlementCompleted:
+      name: settlement.completed
+      title: Settlement Completed
+      summary: Settlement successfully completed
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/commonHeaders'
+      payload:
+        type: object
+        required:
+          - event_type
+          - data
+        properties:
+          event_type:
+            type: string
+            const: settlement.completed
+          data:
+            type: object
+            required:
+              - settlement_id
+              - transfer_id
+              - contract_id
+              - amount
+              - from_wallet_id
+              - to_wallet_id
+            properties:
+              settlement_id:
+                type: string
+                description: TransferSim settlement ID
+              transfer_id:
+                type: string
+                description: TransferSim transfer ID
+              contract_id:
+                type: string
+                format: uuid
+              amount:
+                type: number
+                description: Settlement amount
+              from_wallet_id:
+                type: string
+                description: Loser's wallet ID
+              to_wallet_id:
+                type: string
+                description: Winner's wallet ID
+        examples:
+          - name: Example
+            payload:
+              event_type: settlement.completed
+              data:
+                settlement_id: "STLMT-123456"
+                transfer_id: "TXN-789012"
+                contract_id: "550e8400-e29b-41d4-a716-446655440000"
+                amount: 20.00
+                from_wallet_id: "WLLT-DEF456"
+                to_wallet_id: "WLLT-ABC123"
+
+    SettlementFailed:
+      name: settlement.failed
+      title: Settlement Failed
+      summary: Settlement failed - requires manual resolution
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/commonHeaders'
+      payload:
+        type: object
+        required:
+          - event_type
+          - data
+        properties:
+          event_type:
+            type: string
+            const: settlement.failed
+          data:
+            type: object
+            required:
+              - settlement_id
+              - contract_id
+              - error
+              - error_message
+            properties:
+              settlement_id:
+                type: string
+              contract_id:
+                type: string
+                format: uuid
+              error:
+                type: string
+                description: Error code
+              error_message:
+                type: string
+                description: Human-readable error message
+
+    # ============================================
+    # OUTGOING MESSAGES TO WSIM
+    # ============================================
+    ContractProposed:
+      name: contract.proposed
+      title: Contract Proposed
+      summary: New contract created, recipient should be notified
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/webhookPayload'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookEnvelope'
+          - type: object
+            properties:
+              event_type:
+                const: contract.proposed
+              data:
+                type: object
+                required:
+                  - contract_id
+                  - title
+                  - creator
+                  - recipient
+                properties:
+                  contract_id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  creator:
+                    type: object
+                    properties:
+                      wallet_id:
+                        type: string
+                      display_name:
+                        type: string
+                  recipient:
+                    type: object
+                    properties:
+                      wallet_id:
+                        type: string
+        examples:
+          - name: Example
+            payload:
+              event_id: "evt_1704931200_a1b2c3d4e"
+              event_type: contract.proposed
+              timestamp: "2025-01-11T12:00:00Z"
+              data:
+                contract_id: "550e8400-e29b-41d4-a716-446655440000"
+                title: "Team A vs Team B"
+                creator:
+                  wallet_id: "WLLT-ABC123"
+                  display_name: "Alice"
+                recipient:
+                  wallet_id: "WLLT-DEF456"
+
+    ContractAccepted:
+      name: contract.accepted
+      title: Contract Accepted
+      summary: Counterparty accepted the contract
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/webhookPayload'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookEnvelope'
+          - type: object
+            properties:
+              event_type:
+                const: contract.accepted
+              data:
+                type: object
+                required:
+                  - contract_id
+                  - title
+                  - accepted_by
+                  - creator
+                properties:
+                  contract_id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  accepted_by:
+                    type: object
+                    properties:
+                      wallet_id:
+                        type: string
+                      display_name:
+                        type: string
+                  creator:
+                    type: object
+                    properties:
+                      wallet_id:
+                        type: string
+
+    ContractFunded:
+      name: contract.funded
+      title: Contract Funded
+      summary: All parties have funded, contract is now active
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/webhookPayload'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookEnvelope'
+          - type: object
+            properties:
+              event_type:
+                const: contract.funded
+              data:
+                type: object
+                required:
+                  - contract_id
+                  - title
+                  - parties
+                properties:
+                  contract_id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  parties:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        wallet_id:
+                          type: string
+
+    ContractOutcome:
+      name: contract.outcome
+      title: Contract Outcome
+      summary: Contract conditions resolved, outcome determined
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/webhookPayload'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookEnvelope'
+          - type: object
+            properties:
+              event_type:
+                const: contract.outcome
+              data:
+                type: object
+                required:
+                  - contract_id
+                  - title
+                properties:
+                  contract_id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  winner_wallet_id:
+                    type: string
+                    description: Winner's wallet ID (null if draw/refund)
+                  loser_wallet_id:
+                    type: string
+                    description: Loser's wallet ID (null if draw/refund)
+
+    ContractSettled:
+      name: contract.settled
+      title: Contract Settled
+      summary: Settlement complete, funds transferred
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/webhookPayload'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookEnvelope'
+          - type: object
+            properties:
+              event_type:
+                const: contract.settled
+              data:
+                type: object
+                required:
+                  - contract_id
+                  - title
+                  - winner_wallet_id
+                  - amount
+                properties:
+                  contract_id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  winner_wallet_id:
+                    type: string
+                  amount:
+                    type: string
+                    description: Total winnings amount
+        examples:
+          - name: Example
+            payload:
+              event_id: "evt_1704931500_x9y8z7w6v"
+              event_type: contract.settled
+              timestamp: "2025-01-11T12:05:00Z"
+              data:
+                contract_id: "550e8400-e29b-41d4-a716-446655440000"
+                title: "Team A vs Team B"
+                winner_wallet_id: "WLLT-ABC123"
+                amount: "20.00"
+
+    ContractCancelled:
+      name: contract.cancelled
+      title: Contract Cancelled
+      summary: Contract was cancelled before completion
+      contentType: application/json
+      traits:
+        - $ref: '#/components/messageTraits/webhookPayload'
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/WebhookEnvelope'
+          - type: object
+            properties:
+              event_type:
+                const: contract.cancelled
+              data:
+                type: object
+                required:
+                  - contract_id
+                  - title
+                  - parties
+                properties:
+                  contract_id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  parties:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        wallet_id:
+                          type: string
+
+  schemas:
+    WebhookEnvelope:
+      type: object
+      required:
+        - event_id
+        - event_type
+        - timestamp
+        - data
+      properties:
+        event_id:
+          type: string
+          description: Unique event ID for deduplication
+          example: "evt_1704931200_a1b2c3d4e"
+        event_type:
+          type: string
+          description: Event type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of event
+        data:
+          type: object
+          description: Event-specific payload
+
+  messageTraits:
+    commonHeaders:
+      headers:
+        type: object
+        properties:
+          X-API-Key:
+            type: string
+            description: Service API key for authentication
+          Content-Type:
+            type: string
+            default: application/json
+
+    webhookPayload:
+      headers:
+        type: object
+        properties:
+          X-API-Key:
+            type: string
+            description: ContractSim's API key for WSIM
+          X-Webhook-Event:
+            type: string
+            description: Event type (duplicated from payload for easy routing)
+          Content-Type:
+            type: string
+            default: application/json
