@@ -47,6 +47,9 @@ app.use('/health', healthRoutes);
 app.use('/api/v1/contracts', contractRoutes);
 app.use('/api/v1/oracles', oracleRoutes);
 
+// Alias routes for WSIM compatibility (WSIM calls /contracts directly)
+app.use('/contracts', contractRoutes);
+
 // Webhooks (service-to-service callbacks)
 app.use('/webhooks', webhookRoutes);
 
