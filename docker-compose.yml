@@ -42,7 +42,7 @@ services:
         echo 'Waiting for database...' &&
         npx prisma generate &&
         npx prisma migrate deploy &&
-        node dist/index.js
+        node dist/server.js
       "
 
 networks:
