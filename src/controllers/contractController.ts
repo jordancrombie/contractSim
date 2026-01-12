@@ -196,6 +196,11 @@ export class ContractController {
           total_pot: c.totalPot.toString(),
           currency: c.currency,
           parties_count: c.parties.length,
+          parties: c.parties.map(p => ({
+            wallet_id: p.walletId,
+            display_name: p.displayName,
+            role: p.role.toLowerCase(),
+          })),
           expires_at: c.expiresAt.toISOString(),
           created_at: c.createdAt.toISOString(),
         })),
