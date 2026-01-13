@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-01-13
+
 ### Changed
 - List contracts endpoint now includes `parties` array with `wallet_id`, `display_name`, and `role`
   - Enables WSIM to determine counterparty info and user's role without fetching each contract individually
@@ -14,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now uses `X-Webhook-Signature` header with HMAC-SHA256
   - Requires `TRANSFERSIM_WEBHOOK_SECRET` environment variable
   - More secure - proves payload integrity and sender authenticity
+
+### Added
+- Database deployment runbook (`docs/DATABASE_DEPLOYMENT.md`)
 
 ## [1.0.1] - 2026-01-11
 
