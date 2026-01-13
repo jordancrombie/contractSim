@@ -44,10 +44,12 @@ channels:
   # INCOMING: From BSIM
   # ============================================
   /webhooks/bsim:
-    description: Webhook endpoint for BSIM escrow events
+    description: |
+      Webhook endpoint for BSIM escrow events.
+      Authentication: X-API-Key header with BSIM service key.
     subscribe:
       operationId: receiveBsimWebhook
-      summary: Receive escrow events from BSIM
+      summary: Receive escrow events from BSIM (API key auth)
       message:
         oneOf:
           - $ref: '#/components/messages/EscrowHeld'
@@ -59,10 +61,12 @@ channels:
   # INCOMING: From TransferSim
   # ============================================
   /webhooks/transfersim:
-    description: Webhook endpoint for TransferSim settlement events
+    description: |
+      Webhook endpoint for TransferSim settlement events.
+      Authentication: HMAC-SHA256 signature via X-Webhook-Signature header.
     subscribe:
       operationId: receiveTransferSimWebhook
-      summary: Receive settlement events from TransferSim
+      summary: Receive settlement events from TransferSim (HMAC auth)
       message:
         oneOf:
           - $ref: '#/components/messages/SettlementCompleted'

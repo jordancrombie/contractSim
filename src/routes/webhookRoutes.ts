@@ -1,19 +1,19 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { serviceAuth, allowServices, AuthenticatedRequest } from '../middleware/auth';
+import { serviceAuth, allowServices, verifyWebhookSignature, AuthenticatedRequest } from '../middleware/auth';
 import { settlementService } from '../services/SettlementService';
+import { env } from '../config/env';
 import prisma from '../config/database';
 
 const router = Router();
 
-// All webhook routes require service authentication
-router.use(serviceAuth);
-
 /**
  * POST /webhooks/bsim
  * Receive escrow events from BSIM
+ * Auth: X-API-Key header
  */
 router.post(
   '/bsim',
+  serviceAuth,
   allowServices('bsim'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -56,10 +56,11 @@ router.post(
 /**
  * POST /webhooks/transfersim
  * Receive settlement events from TransferSim
+ * Auth: HMAC signature via X-Webhook-Signature header
  */
 router.post(
   '/transfersim',
-  allowServices('transfersim'),
+  verifyWebhookSignature(env.webhookSecrets.transfersim),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { event_type, data } = req.body;

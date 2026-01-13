@@ -157,6 +157,23 @@ After settlement completes, send webhook:
 
 **Endpoint:** `POST https://contract.banksim.ca/webhooks/transfersim`
 
+**Authentication:** HMAC-SHA256 signature via `X-Webhook-Signature` header
+
+```http
+POST /webhooks/transfersim
+Content-Type: application/json
+X-Webhook-Signature: {hmac_sha256_hex}
+```
+
+The signature is computed as:
+```javascript
+const signature = crypto
+  .createHmac('sha256', process.env.CONTRACTSIM_WEBHOOK_SECRET)
+  .update(JSON.stringify(body))
+  .digest('hex');
+```
+
+**Payload:**
 ```json
 {
   "event_id": "evt_123",

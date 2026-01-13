@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { env } from '../config/env';
 
 // Service identity after authentication
@@ -101,6 +102,51 @@ export function allowServices(...allowed: ServiceIdentity['service'][]) {
       });
       return;
     }
+
+    next();
+  };
+}
+
+/**
+ * Verifies HMAC signature for webhook requests.
+ * Used for TransferSim webhooks which use X-Webhook-Signature header.
+ *
+ * Expected headers:
+ * - X-Webhook-Signature: HMAC-SHA256 signature of the request body
+ */
+export function verifyWebhookSignature(secret: string | undefined) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    // If no secret configured, skip verification (dev mode)
+    if (!secret) {
+      console.warn('[Auth] Webhook signature verification skipped - no secret configured');
+      next();
+      return;
+    }
+
+    const signature = req.headers['x-webhook-signature'] as string;
+
+    if (!signature) {
+      res.status(401).json({ error: 'Missing webhook signature' });
+      return;
+    }
+
+    // Compute expected signature
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    // Constant-time comparison to prevent timing attacks
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+      console.warn('[Auth] Webhook signature mismatch');
+      res.status(401).json({ error: 'Invalid webhook signature' });
+      return;
+    }
+
+    // Set service identity for downstream handlers
+    (req as AuthenticatedRequest).serviceIdentity = {
+      service: 'transfersim',
+    };
 
     next();
   };
