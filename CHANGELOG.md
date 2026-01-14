@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-01-14
+
+### Changed
+- Fund endpoint (`/contracts/:id/fund`) now allows WSIM to initiate funding
+  - Previously restricted to BSIM only, now accepts WSIM proxy requests
+  - WSIM sends `account_id` and `bsim_user_id` in request body
+  - ContractSim calls BSIM escrow API to create hold
+  - Returns 202 Accepted; funding confirmed via BSIM webhook
+- Added `BSIM_ESCROW_API_KEY` environment variable for outbound BSIM calls
+  - Separates inbound auth (BSIM calling us) from outbound auth (us calling BSIM)
+  - Production key provided by BSIM team
+
+### Fixed
+- Resolved 403 error when WSIM tried to fund contracts
+- BsimClient now uses correct API key for escrow operations
+
 ## [1.0.3] - 2026-01-14
 
 ### Fixed
@@ -15,10 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - WSIM proxies fund request to ContractSim with account details
   - ContractSim orchestrates escrow creation with BSIM
   - BSIM sends webhook to ContractSim when escrow is held
-
-### Known Issues
-- `/contracts/:id/fund` endpoint currently restricted to BSIM only - needs code fix to allow WSIM
-- Fund endpoint does not yet call BSIM escrow API - requires implementation
 
 ## [1.0.2] - 2026-01-13
 

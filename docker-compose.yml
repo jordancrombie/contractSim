@@ -16,10 +16,12 @@ services:
       PORT: 3020
       # Database - uses BSIM's PostgreSQL with separate database
       DATABASE_URL: postgresql://bsim:bsim_dev_password@bsim-db:5432/contractsim
-      # Service Authentication (S2S API Keys)
+      # Service Authentication (S2S API Keys - for incoming requests)
       WSIM_API_KEY: ${WSIM_API_KEY:-}
-      BSIM_API_KEY: ${BSIM_API_KEY:-99c33341e8817841833a6140027b83542f81e5d509b55d03d2fe7a2be212e72a}
+      BSIM_API_KEY: ${BSIM_API_KEY:-}
       TRANSFERSIM_API_KEY: ${TRANSFERSIM_API_KEY:-}
+      # Outbound API Keys (for ContractSim calling BSIM)
+      BSIM_ESCROW_API_KEY: ${BSIM_ESCROW_API_KEY:-}
       # Webhook Secrets (HMAC verification)
       TRANSFERSIM_WEBHOOK_SECRET: ${TRANSFERSIM_WEBHOOK_SECRET:-}
       # External Service URLs (production)

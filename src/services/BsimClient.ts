@@ -2,6 +2,7 @@ import { env } from '../config/env';
 
 interface EscrowHoldRequest {
   userId: string;
+  walletId: string;  // WSIM wallet ID - BSIM includes this in webhook
   accountId: string;
   amount: number;
   currency: string;
@@ -32,7 +33,13 @@ export class BsimClient {
 
   constructor() {
     this.baseUrl = env.services.bsim;
-    this.apiKey = env.apiKeys.bsim;
+    // Use the dedicated outbound key for calling BSIM's escrow API
+    // Falls back to the inbound key for backwards compatibility during migration
+    this.apiKey = env.outboundApiKeys.bsimEscrow || env.apiKeys.bsim;
+
+    if (!env.outboundApiKeys.bsimEscrow) {
+      console.warn('[BsimClient] BSIM_ESCROW_API_KEY not configured, using BSIM_API_KEY as fallback');
+    }
   }
 
   /**
@@ -47,6 +54,7 @@ export class BsimClient {
       },
       body: JSON.stringify({
         user_id: request.userId,
+        wallet_id: request.walletId,
         account_id: request.accountId,
         amount: request.amount,
         currency: request.currency,

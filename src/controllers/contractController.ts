@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { contractService } from '../services/ContractService';
+import { bsimClient, BsimError } from '../services/BsimClient';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { IdempotentRequest } from '../middleware/idempotency';
 import { ContractType, EscrowType, SettlementType, PartyRole, ContractStatus } from '@prisma/client';
-import { ValidationError } from '../middleware/errorHandler';
+import { ValidationError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
 
 // ============================================
 // VALIDATION SCHEMAS
@@ -40,6 +41,11 @@ const listContractsSchema = z.object({
   type: z.nativeEnum(ContractType).optional(),
   limit: z.coerce.number().min(1).max(100).optional(),
   offset: z.coerce.number().min(0).optional(),
+});
+
+const initiateFundingSchema = z.object({
+  account_id: z.string().min(1),
+  bsim_user_id: z.string().min(1),
 });
 
 // ============================================
@@ -242,7 +248,85 @@ export class ContractController {
 
   /**
    * POST /api/v1/contracts/:id/fund
-   * Record funding (called by BSIM)
+   * Initiate funding by calling BSIM escrow API
+   *
+   * This endpoint is called by WSIM to initiate the escrow creation.
+   * The actual funding is recorded when BSIM sends the escrow.held webhook.
+   */
+  async initiateFunding(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const walletId = authReq.serviceIdentity.walletId;
+      const { id: contractId } = req.params;
+
+      if (!walletId) {
+        throw new ValidationError('Missing wallet context');
+      }
+
+      const parsed = initiateFundingSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError('Invalid request body', parsed.error.flatten());
+      }
+
+      const { account_id, bsim_user_id } = parsed.data;
+
+      // Get contract and validate state
+      const contract = await contractService.getContract(contractId);
+
+      if (contract.status !== ContractStatus.FUNDING) {
+        throw new ConflictError(`Cannot fund contract in ${contract.status} status`);
+      }
+
+      // Find user's party
+      const party = contract.parties.find(p => p.walletId === walletId);
+      if (!party) {
+        throw new ForbiddenError('You are not a party to this contract');
+      }
+
+      if (party.funded) {
+        throw new ConflictError('You have already funded this contract');
+      }
+
+      // Call BSIM to create escrow hold
+      console.log(`[Fund] Initiating escrow for contract ${contractId}, user ${walletId}`);
+
+      try {
+        await bsimClient.createEscrowHold({
+          userId: bsim_user_id,
+          walletId: walletId,
+          accountId: account_id,
+          amount: parseFloat(party.stakeAmount.toString()),
+          currency: contract.currency,
+          contractId: contract.id,
+          expiresAt: contract.fundingDeadline,
+          description: `Escrow for: ${contract.title}`,
+        });
+      } catch (err) {
+        if (err instanceof BsimError) {
+          console.error(`[Fund] BSIM escrow creation failed: ${err.message}`);
+          throw new ConflictError(`Escrow creation failed: ${err.message}`);
+        }
+        throw err;
+      }
+
+      console.log(`[Fund] Escrow creation initiated for contract ${contractId}`);
+
+      // Return 202 Accepted - funding will be confirmed via webhook
+      res.status(202).json({
+        contract_id: contract.id,
+        status: 'funding_initiated',
+        message: 'Escrow creation initiated. Contract will be updated when confirmed.',
+        stake_amount: party.stakeAmount.toString(),
+        currency: contract.currency,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Record funding (internal - used by webhook handler)
+   * @deprecated Use webhook handler directly instead
    */
   async recordFunding(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

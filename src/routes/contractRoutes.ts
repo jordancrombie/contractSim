@@ -55,13 +55,19 @@ router.post(
 
 /**
  * POST /api/v1/contracts/:id/fund
- * Record funding from BSIM
- * Auth: BSIM service only
+ * Initiate funding by calling BSIM escrow API
+ * Auth: WSIM proxy with user context
+ *
+ * Request body:
+ * - account_id: The BSIM account to escrow from
+ * - bsim_user_id: The user's ID in BSIM (from WSIM enrollment)
+ *
+ * The actual funding is recorded when BSIM sends the escrow.held webhook.
  */
 router.post(
   '/:id/fund',
-  allowServices('bsim'),
-  (req, res, next) => contractController.recordFunding(req, res, next)
+  requireUserContext,
+  (req, res, next) => contractController.initiateFunding(req, res, next)
 );
 
 /**

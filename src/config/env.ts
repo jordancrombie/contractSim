@@ -8,10 +8,13 @@ const envSchema = z.object({
   PORT: z.string().default('3003'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  // Service API Keys (S2S auth)
+  // Service API Keys (S2S auth - for incoming requests)
   WSIM_API_KEY: z.string(),
   BSIM_API_KEY: z.string(),
   TRANSFERSIM_API_KEY: z.string(),
+
+  // Outbound API Keys (for ContractSim calling other services)
+  BSIM_ESCROW_API_KEY: z.string().optional(),
 
   // Webhook Secrets (HMAC verification)
   TRANSFERSIM_WEBHOOK_SECRET: z.string().optional(),
@@ -48,6 +51,9 @@ export const env = {
     wsim: parsed.data.WSIM_API_KEY,
     bsim: parsed.data.BSIM_API_KEY,
     transfersim: parsed.data.TRANSFERSIM_API_KEY,
+  },
+  outboundApiKeys: {
+    bsimEscrow: parsed.data.BSIM_ESCROW_API_KEY,
   },
   webhookSecrets: {
     transfersim: parsed.data.TRANSFERSIM_WEBHOOK_SECRET,
