@@ -1,7 +1,7 @@
 # WSIM Integration Guide
 
 **Status:** Draft
-**Last Updated:** 2026-01-11
+**Last Updated:** 2026-01-14
 
 This document outlines what WSIM needs to implement to support ContractSim.
 
@@ -141,8 +141,30 @@ Authorization: Bearer {user_jwt}
 
 **WSIM Processing:**
 1. Verify user has BSIM enrollment for this account
-2. Call ContractSim fund endpoint
-3. ContractSim will call BSIM to create escrow hold
+2. Call **BSIM escrow API** to create hold (NOT ContractSim)
+3. BSIM creates escrow and sends webhook to ContractSim
+4. ContractSim records funding via webhook handler
+
+**WSIM → BSIM Request:**
+```http
+POST /api/escrow/hold
+Authorization: X-API-Key: {wsim_bsim_key}
+
+{
+  "user_id": "{user_id}",
+  "wallet_id": "{user_wallet_id}",
+  "account_id": "account_456",
+  "amount": 50.00,
+  "currency": "CAD",
+  "contract_id": "{contract_id}",
+  "contract_service": "contractsim",
+  "hold_type": "escrow",
+  "expires_at": "{funding_deadline}",
+  "description": "Escrow for: {contract_title}"
+}
+```
+
+**Important:** WSIM does NOT call ContractSim for funding. BSIM's webhook notifies ContractSim when escrow is created.
 
 ---
 

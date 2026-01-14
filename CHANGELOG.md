@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-01-14
+
+### Fixed
+- Documentation bug in INTEGRATION_WSIM.md that incorrectly stated WSIM should call ContractSim's `/fund` endpoint
+  - Correct flow: WSIM → BSIM (create escrow) → BSIM webhook → ContractSim
+  - WSIM should call BSIM's escrow API directly, not ContractSim
+  - This caused 403 errors when WSIM/mwsim tried to fund contracts
+
 ## [1.0.2] - 2026-01-13
 
 ### Changed
