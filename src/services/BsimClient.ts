@@ -46,36 +46,63 @@ export class BsimClient {
    * Create an escrow hold on a user's account
    */
   async createEscrowHold(request: EscrowHoldRequest): Promise<EscrowHoldResponse> {
-    const response = await fetch(`${this.baseUrl}/api/escrow/hold`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
-      },
-      body: JSON.stringify({
-        user_id: request.userId,
-        wallet_id: request.walletId,
-        account_id: request.accountId,
-        amount: request.amount,
-        currency: request.currency,
-        contract_id: request.contractId,
-        contract_service: 'contractsim',
-        hold_type: 'escrow',
-        expires_at: request.expiresAt.toISOString(),
-        description: request.description,
-      }),
-    });
+    const url = `${this.baseUrl}/api/escrow/hold`;
+    const requestBody = {
+      user_id: request.userId,
+      wallet_id: request.walletId,
+      account_id: request.accountId,
+      amount: request.amount,
+      currency: request.currency,
+      contract_id: request.contractId,
+      contract_service: 'contractsim',
+      hold_type: 'escrow',
+      expires_at: request.expiresAt.toISOString(),
+      description: request.description,
+    };
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' })) as { error?: string; code?: string };
-      throw new BsimError(
-        response.status,
-        error.error || 'Failed to create escrow hold',
-        error.code
-      );
+    console.log(`[BsimClient] Creating escrow hold: ${url}`);
+    console.log(`[BsimClient] Request body:`, JSON.stringify(requestBody, null, 2));
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': this.apiKey,
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (networkError) {
+      console.error(`[BsimClient] Network error calling BSIM:`, networkError);
+      throw new BsimError(0, `Network error: ${networkError instanceof Error ? networkError.message : 'Unknown network error'}`);
     }
 
-    return response.json() as Promise<EscrowHoldResponse>;
+    console.log(`[BsimClient] Response status: ${response.status}`);
+
+    if (!response.ok) {
+      let errorMessage = 'Unknown error';
+      let errorCode: string | undefined;
+
+      try {
+        const responseText = await response.text();
+        console.error(`[BsimClient] Error response body: ${responseText}`);
+
+        if (responseText) {
+          const error = JSON.parse(responseText) as { error?: string; message?: string; code?: string };
+          errorMessage = error.error || error.message || 'Failed to create escrow hold';
+          errorCode = error.code;
+        }
+      } catch (parseError) {
+        console.error(`[BsimClient] Could not parse error response`);
+      }
+
+      throw new BsimError(response.status, errorMessage, errorCode);
+    }
+
+    const result = await response.json() as EscrowHoldResponse;
+    console.log(`[BsimClient] Escrow created successfully:`, result.escrow_id);
+    return result;
   }
 
   /**
