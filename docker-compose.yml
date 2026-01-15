@@ -24,6 +24,7 @@ services:
       BSIM_ESCROW_API_KEY: ${BSIM_ESCROW_API_KEY:-}
       # Webhook Secrets (HMAC verification)
       TRANSFERSIM_WEBHOOK_SECRET: ${TRANSFERSIM_WEBHOOK_SECRET:-}
+      BSIM_WEBHOOK_SECRET: ${BSIM_WEBHOOK_SECRET:-}
       # External Service URLs (production)
       WSIM_URL: https://wsim.banksim.ca
       BSIM_URL: https://banksim.ca

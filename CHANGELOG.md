@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-01-15
+
+### Fixed
+- BSIM webhook authentication now uses HMAC signature (`X-BSIM-Signature` header)
+  - Previously expected `X-API-Key` header, but BSIM implemented HMAC (like TransferSim)
+  - Added `BSIM_WEBHOOK_SECRET` environment variable for webhook signature verification
+  - Updated INTEGRATION_BSIM.md with clear webhook authentication documentation
+
+### Changed
+- `verifyWebhookSignature` middleware now accepts options object for configurable header name
+  - Allows different services to use different signature header names
+  - BSIM: `X-BSIM-Signature`, TransferSim: `X-Webhook-Signature`
+
 ## [1.1.0] - 2026-01-14
 
 ### Changed

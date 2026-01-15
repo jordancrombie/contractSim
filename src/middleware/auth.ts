@@ -107,45 +107,55 @@ export function allowServices(...allowed: ServiceIdentity['service'][]) {
   };
 }
 
+interface WebhookSignatureOptions {
+  secret: string | undefined;
+  headerName?: string;  // Default: 'x-webhook-signature'
+  service: ServiceIdentity['service'];
+}
+
 /**
  * Verifies HMAC signature for webhook requests.
- * Used for TransferSim webhooks which use X-Webhook-Signature header.
  *
- * Expected headers:
- * - X-Webhook-Signature: HMAC-SHA256 signature of the request body
+ * @param options Configuration options
+ * @param options.secret The HMAC secret to verify against
+ * @param options.headerName The header containing the signature (default: 'x-webhook-signature')
+ * @param options.service The service identity to set after successful verification
  */
-export function verifyWebhookSignature(secret: string | undefined) {
+export function verifyWebhookSignature(options: WebhookSignatureOptions) {
+  const headerName = options.headerName || 'x-webhook-signature';
+
   return (req: Request, res: Response, next: NextFunction): void => {
     // If no secret configured, skip verification (dev mode)
-    if (!secret) {
-      console.warn('[Auth] Webhook signature verification skipped - no secret configured');
+    if (!options.secret) {
+      console.warn(`[Auth] Webhook signature verification skipped for ${options.service} - no secret configured`);
+      (req as AuthenticatedRequest).serviceIdentity = { service: options.service };
       next();
       return;
     }
 
-    const signature = req.headers['x-webhook-signature'] as string;
+    const signature = req.headers[headerName] as string;
 
     if (!signature) {
-      res.status(401).json({ error: 'Missing webhook signature' });
+      res.status(401).json({ error: `Missing webhook signature (expected ${headerName} header)` });
       return;
     }
 
     // Compute expected signature
     const expectedSignature = crypto
-      .createHmac('sha256', secret)
+      .createHmac('sha256', options.secret)
       .update(JSON.stringify(req.body))
       .digest('hex');
 
     // Constant-time comparison to prevent timing attacks
     if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
-      console.warn('[Auth] Webhook signature mismatch');
+      console.warn(`[Auth] Webhook signature mismatch for ${options.service}`);
       res.status(401).json({ error: 'Invalid webhook signature' });
       return;
     }
 
     // Set service identity for downstream handlers
     (req as AuthenticatedRequest).serviceIdentity = {
-      service: 'transfersim',
+      service: options.service,
     };
 
     next();

@@ -18,6 +18,7 @@ const envSchema = z.object({
 
   // Webhook Secrets (HMAC verification)
   TRANSFERSIM_WEBHOOK_SECRET: z.string().optional(),
+  BSIM_WEBHOOK_SECRET: z.string().optional(),
 
   // External Service URLs
   WSIM_URL: z.string().default('http://localhost:3002'),
@@ -57,6 +58,7 @@ export const env = {
   },
   webhookSecrets: {
     transfersim: parsed.data.TRANSFERSIM_WEBHOOK_SECRET,
+    bsim: parsed.data.BSIM_WEBHOOK_SECRET,
   },
   services: {
     wsim: parsed.data.WSIM_URL,

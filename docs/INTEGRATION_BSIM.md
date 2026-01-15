@@ -1,7 +1,7 @@
 # BSIM Integration Guide
 
-**Status:** Draft
-**Last Updated:** 2026-01-11
+**Status:** Active
+**Last Updated:** 2026-01-15
 
 This document outlines what BSIM needs to implement to support ContractSim escrow functionality.
 
@@ -210,6 +210,7 @@ BSIM should send webhooks for:
     "escrow_id": "escrow_xyz789",
     "contract_id": "contract_abc123",
     "user_id": "user_123",
+    "wallet_id": "wallet_abc",
     "amount": 50.00
   }
 }
@@ -224,24 +225,65 @@ BSIM should send webhooks for:
   "data": {
     "escrow_id": "escrow_xyz789",
     "contract_id": "contract_abc123",
-    "user_id": "user_123"
+    "user_id": "user_123",
+    "wallet_id": "wallet_abc"
   }
 }
 ```
 
 **Webhook URL:** `https://contract.banksim.ca/webhooks/bsim`
 
+### Webhook Authentication (HMAC Signature)
+
+BSIM must sign all webhook requests using HMAC-SHA256:
+
+```http
+POST /webhooks/bsim
+Content-Type: application/json
+X-BSIM-Signature: {hmac_signature}
+```
+
+**Signature Calculation:**
+```javascript
+const signature = crypto
+  .createHmac('sha256', WEBHOOK_SECRET)
+  .update(JSON.stringify(requestBody))
+  .digest('hex');
+```
+
+**Example Request:**
+```http
+POST /webhooks/bsim HTTP/1.1
+Host: contract.banksim.ca
+Content-Type: application/json
+X-BSIM-Signature: a1b2c3d4e5f6...
+
+{"event_id":"evt_123","event_type":"escrow.held",...}
+```
+
+The webhook secret will be shared during deployment setup. ContractSim will verify the signature before processing any webhook.
+
 ---
 
 ## Authentication
 
-ContractSim will authenticate using service-to-service API key:
+### ContractSim → BSIM (API Calls)
+
+ContractSim authenticates to BSIM's escrow API using:
 
 ```
-X-API-Key: {contractsim_service_key}
+X-API-Key: {bsim_escrow_api_key}
 ```
 
-Key will be provisioned during deployment setup.
+### BSIM → ContractSim (Webhooks)
+
+BSIM authenticates webhook requests using HMAC signature (see above):
+
+```
+X-BSIM-Signature: {hmac_sha256_signature}
+```
+
+Keys will be exchanged during deployment setup.
 
 ---
 
