@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { env } from '../config/env';
 import { auditService } from './AuditService';
+import { webhookService } from './WebhookService';
 import {
   Contract,
   ContractParty,
@@ -132,6 +133,18 @@ export class ContractService {
     // Audit log
     await auditService.logContractCreated(contract, creatorWalletId);
 
+    // Notify counterparty via WSIM webhook
+    const creator = contract.parties.find(p => p.walletId === creatorWalletId);
+    const counterparty = contract.parties.find(p => p.walletId !== creatorWalletId);
+    if (creator && counterparty) {
+      await webhookService.notifyContractProposed(
+        contract.id,
+        { walletId: creator.walletId, displayName: creator.displayName },
+        counterparty.walletId,
+        contract.title
+      );
+    }
+
     return contract as ContractWithRelations;
   }
 
@@ -229,6 +242,18 @@ export class ContractService {
     // Audit
     await auditService.logPartyAccepted(contractId, walletId);
 
+    // Notify creator that counterparty accepted
+    const acceptingParty = contract.parties.find(p => p.walletId === walletId);
+    const creator = contract.parties.find(p => p.role === PartyRole.CREATOR);
+    if (acceptingParty && creator) {
+      await webhookService.notifyContractAccepted(
+        contractId,
+        contract.title,
+        { walletId: acceptingParty.walletId, displayName: acceptingParty.displayName },
+        { walletId: creator.walletId }
+      );
+    }
+
     // Check if all parties accepted
     const updatedContract = await this.getContract(contractId);
     const allAccepted = updatedContract.parties.every(p => p.accepted);
@@ -302,6 +327,13 @@ export class ContractService {
         ContractStatus.FUNDING,
         ContractStatus.ACTIVE,
         'system'
+      );
+
+      // Notify all parties that contract is now active
+      await webhookService.notifyContractFunded(
+        contractId,
+        updatedContract.title,
+        updatedContract.parties.map(p => ({ walletId: p.walletId }))
       );
     }
 

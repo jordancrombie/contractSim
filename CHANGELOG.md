@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-01-16
+
+### Fixed
+- **WSIM webhook notifications now sent for contract lifecycle events**
+  - `contract.proposed`: Counterparty notified when invited to a contract
+  - `contract.accepted`: Creator notified when counterparty accepts
+  - `contract.funded`: All parties notified when contract becomes active
+  - Bug: Webhook methods existed but were never called from ContractService
+- Fixed `contract.proposed` webhook payload format to match WSIM expectations
+  - Changed `recipient.wallet_id` (nested) to `recipient_wallet_id` (root level)
+
 ### Changed
 - Dev environment `BSIM_WEBHOOK_SECRET` updated to match BSIM's configured secret
 

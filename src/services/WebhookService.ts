@@ -164,7 +164,7 @@ export class WebhookService {
   /**
    * Notify WSIM of contract events
    */
-  async notifyContractProposed(contractId: string, creator: { walletId: string; displayName: string }, recipient: { walletId: string }, title: string): Promise<void> {
+  async notifyContractProposed(contractId: string, creator: { walletId: string; displayName: string }, recipientWalletId: string, title: string): Promise<void> {
     await this.sendToWsim('contract.proposed', {
       contract_id: contractId,
       title,
@@ -172,9 +172,7 @@ export class WebhookService {
         wallet_id: creator.walletId,
         display_name: creator.displayName,
       },
-      recipient: {
-        wallet_id: recipient.walletId,
-      },
+      recipient_wallet_id: recipientWalletId,
     });
   }
 
