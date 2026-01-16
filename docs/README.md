@@ -13,8 +13,7 @@ This directory contains technical documentation for ContractSim.
 
 | Document | Description | Status |
 |----------|-------------|--------|
-| [Contract Lifecycle](FLOW_CONTRACT_LIFECYCLE.md) | State machine and transitions | Planned |
-| [Settlement Flow](FLOW_SETTLEMENT.md) | Cross-bank settlement sequence | Planned |
+| [Architecture Flows](ARCHITECTURE_FLOWS.md) | State machine, funding flows, settlement flows | Complete |
 
 ## Integration Guides
 

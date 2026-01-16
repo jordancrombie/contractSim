@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dev environment `BSIM_WEBHOOK_SECRET` updated to match BSIM's configured secret
+
+### Added
+- Architecture flow diagrams documentation (`docs/ARCHITECTURE_FLOWS.md`)
+
 ## [1.2.2] - 2026-01-16
 
 ### Fixed
