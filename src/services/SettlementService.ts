@@ -56,12 +56,12 @@ export class SettlementService {
       'system'
     );
 
-    // Notify of outcome
+    // Notify both parties of outcome (winner gets "won", loser gets "lost")
     await webhookService.notifyContractOutcome(
       contractId,
       contract.title,
-      winner.walletId,
-      loser.walletId
+      { walletId: winner.walletId, displayName: winner.displayName },
+      { walletId: loser.walletId, displayName: loser.displayName }
     );
 
     // Create settlement via TransferSim
@@ -151,7 +151,7 @@ export class SettlementService {
   private async processRefund(contract: {
     id: string;
     title: string;
-    parties: { walletId: string; escrowId: string | null; displayName: string }[];
+    parties: { walletId: string; escrowId: string | null; displayName: string; stakeAmount: { toString(): string } }[];
   }): Promise<void> {
     console.log(`[Settlement] Processing refund for contract ${contract.id}`);
 
@@ -192,12 +192,15 @@ export class SettlementService {
       },
     });
 
-    // Notify WSIM
-    await webhookService.notifyContractCancelled(
-      contract.id,
-      contract.title,
-      contract.parties.map(p => ({ walletId: p.walletId }))
-    );
+    // Notify both parties of expiration/refund
+    for (const party of contract.parties) {
+      await webhookService.notifyContractExpired(
+        contract.id,
+        contract.title,
+        party.walletId,
+        party.stakeAmount?.toString() || '0.00'
+      );
+    }
   }
 
   /**

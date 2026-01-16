@@ -7,6 +7,7 @@ import healthRoutes from './routes/healthRoutes';
 import oracleRoutes from './routes/oracleRoutes';
 import webhookRoutes from './routes/webhookRoutes';
 import { testOracleService } from './services/TestOracleService';
+import { contractExpirationService } from './services/ContractExpirationService';
 
 const app = express();
 
@@ -88,6 +89,13 @@ app.listen(PORT, async () => {
     testOracleService.start();
   } catch (err) {
     console.error('[TestOracle] Failed to start:', err);
+  }
+
+  // Start contract expiration checker
+  try {
+    contractExpirationService.start();
+  } catch (err) {
+    console.error('[ContractExpiration] Failed to start:', err);
   }
 });
 

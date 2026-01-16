@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { verifyWebhookSignature, AuthenticatedRequest } from '../middleware/auth';
 import { settlementService } from '../services/SettlementService';
+import { webhookService } from '../services/WebhookService';
 import { env } from '../config/env';
 import prisma from '../config/database';
 
@@ -154,6 +155,7 @@ async function handleEscrowExpired(data: {
   // Check if contract should be expired
   const contract = await prisma.contract.findUnique({
     where: { id: data.contract_id },
+    include: { parties: true },
   });
 
   if (contract && contract.status === 'FUNDING') {
@@ -162,6 +164,18 @@ async function handleEscrowExpired(data: {
       data: { status: 'EXPIRED' },
     });
     console.log(`[Webhook] Contract ${data.contract_id} expired due to escrow timeout`);
+
+    // Notify both parties of expiration
+    for (const party of contract.parties) {
+      // Refund amount is their stake if they had funded, otherwise 0
+      const refundAmount = party.funded ? party.stakeAmount.toString() : '0.00';
+      await webhookService.notifyContractExpired(
+        data.contract_id,
+        contract.title,
+        party.walletId,
+        refundAmount
+      );
+    }
   }
 }
 
@@ -214,6 +228,11 @@ async function handleSettlementCompleted(data: {
     },
   });
 
+  // Get contract details for notification
+  const contract = await prisma.contract.findUnique({
+    where: { id: data.contract_id },
+  });
+
   // Transition contract to SETTLED
   await prisma.contract.update({
     where: { id: data.contract_id },
@@ -225,7 +244,17 @@ async function handleSettlementCompleted(data: {
 
   console.log(`[Webhook] Contract ${data.contract_id} is now SETTLED`);
 
-  // TODO: Notify WSIM of settlement
+  // Notify both parties of settlement (winner and loser get different payloads)
+  if (contract) {
+    await webhookService.notifyContractSettled(
+      data.contract_id,
+      contract.title,
+      data.to_wallet_id,
+      data.from_wallet_id,
+      data.amount.toFixed(2),
+      contract.currency
+    );
+  }
 }
 
 async function handleSettlementFailed(data: {
