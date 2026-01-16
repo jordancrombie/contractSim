@@ -24,7 +24,7 @@ export class WebhookService {
       data,
     };
 
-    await this.queueWebhook('wsim', `${env.services.wsim}/webhooks/contractsim`, payload);
+    await this.queueWebhook('wsim', `${env.services.wsim}/api/webhooks/contractsim`, payload);
   }
 
   /**

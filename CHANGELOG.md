@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Bug: Webhook methods existed but were never called from ContractService
 - Fixed `contract.proposed` webhook payload format to match WSIM expectations
   - Changed `recipient.wallet_id` (nested) to `recipient_wallet_id` (root level)
+- Fixed WSIM webhook URL missing `/api` prefix
+  - Changed `/webhooks/contractsim` to `/api/webhooks/contractsim`
 
 ### Changed
 - Dev environment `BSIM_WEBHOOK_SECRET` updated to match BSIM's configured secret
