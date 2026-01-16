@@ -273,10 +273,6 @@ export class ContractController {
       // Get contract and validate state
       const contract = await contractService.getContract(contractId);
 
-      if (contract.status !== ContractStatus.FUNDING) {
-        throw new ConflictError(`Cannot fund contract in ${contract.status} status`);
-      }
-
       // Find user's party
       const party = contract.parties.find(p => p.walletId === walletId);
       if (!party) {
@@ -285,6 +281,23 @@ export class ContractController {
 
       if (party.funded) {
         throw new ConflictError('You have already funded this contract');
+      }
+
+      // Validate funding is allowed based on contract type, status, and role
+      // FUNDING state always allows funding
+      if (contract.status !== ContractStatus.FUNDING) {
+        // WAGER type: Creator can fund in PROPOSED state (before counterparty accepts)
+        if (contract.type === ContractType.WAGER && contract.status === ContractStatus.PROPOSED) {
+          if (party.role !== PartyRole.CREATOR) {
+            throw new ConflictError(
+              'Counterparty must accept the wager before funding. Please accept the contract first.'
+            );
+          }
+          // Creator can proceed - continue to escrow creation
+        } else {
+          // All other cases: funding not allowed
+          throw new ConflictError(`Cannot fund contract in ${contract.status} status`);
+        }
       }
 
       // Call BSIM to create escrow hold

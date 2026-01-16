@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-01-16
+
+### Fixed
+- Wager creator funding now works in PROPOSED state
+  - Bug: Controller had duplicate status validation that wasn't updated with flexible logic
+  - Controller's `initiateFunding` now uses same flexible funding rules as service layer
+
 ## [1.2.1] - 2026-01-16
 
 ### Added
