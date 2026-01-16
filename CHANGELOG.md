@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-01-15
+
+### Added
+- Flexible funding logic per contract type
+  - WAGER contracts: Creator can fund immediately in PROPOSED state (before counterparty accepts)
+    - Shows "skin in the game" to counterparty
+    - Counterparty must still accept before they can fund
+  - ESCROW, MILESTONE, CUSTOM: All parties must accept before anyone can fund (existing behavior)
+  - Architecture designed for future flexibility (e.g., crowdfunding goals with multiple contributors)
+
+### Changed
+- Extracted `validateFundingAllowed()` method for funding rules per contract type and party role
+
 ## [1.1.1] - 2026-01-15
 
 ### Fixed
