@@ -133,12 +133,17 @@ export function verifyWebhookSignature(options: WebhookSignatureOptions) {
       return;
     }
 
-    const signature = req.headers[headerName] as string;
+    const signatureHeader = req.headers[headerName] as string;
 
-    if (!signature) {
+    if (!signatureHeader) {
       res.status(401).json({ error: `Missing webhook signature (expected ${headerName} header)` });
       return;
     }
+
+    // Strip 'sha256=' prefix if present (GitHub-style signatures)
+    const signature = signatureHeader.startsWith('sha256=')
+      ? signatureHeader.slice(7)
+      : signatureHeader;
 
     // Compute expected signature
     const expectedSignature = crypto
@@ -146,8 +151,11 @@ export function verifyWebhookSignature(options: WebhookSignatureOptions) {
       .update(JSON.stringify(req.body))
       .digest('hex');
 
-    // Constant-time comparison to prevent timing attacks
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    // Check lengths match before constant-time comparison (prevents RangeError)
+    const sigBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
       console.warn(`[Auth] Webhook signature mismatch for ${options.service}`);
       res.status(401).json({ error: 'Invalid webhook signature' });
       return;

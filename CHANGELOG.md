@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Webhook signature verification now handles `sha256=` prefix** (GitHub-style signatures)
+  - TransferSim sends `sha256=<hex>` (71 chars), ContractSim expected raw `<hex>` (64 chars)
+  - Now strips `sha256=` prefix before comparison
+  - Added length check before `timingSafeEqual` to prevent `RangeError`
+
 ## [1.5.0] - 2026-01-16
 
 ### Added
