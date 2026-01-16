@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-01-16
+
+### Added
+- Version number now included in health check responses (`/health` and `/health/ready`)
+  - Reads version directly from package.json to ensure consistency
+  - Enables easy verification of deployed version
+
 ## [1.2.0] - 2026-01-15
 
 ### Added

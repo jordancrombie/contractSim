@@ -1,6 +1,6 @@
 {
   "name": "contractsim",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Conditional Payment Coordination Service",
   "main": "dist/server.js",
   "scripts": {

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import prisma from '../config/database';
+import { version } from '../../package.json';
 
 const router = Router();
 
@@ -15,12 +16,14 @@ router.get('/', async (req, res) => {
     res.json({
       status: 'healthy',
       service: 'contractsim',
+      version,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
     res.status(503).json({
       status: 'unhealthy',
       service: 'contractsim',
+      version,
       error: 'Database connection failed',
       timestamp: new Date().toISOString(),
     });
@@ -35,6 +38,7 @@ router.get('/ready', async (req, res) => {
   res.json({
     status: 'ready',
     service: 'contractsim',
+    version,
     timestamp: new Date().toISOString(),
   });
 });
