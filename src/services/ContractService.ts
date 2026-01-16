@@ -252,10 +252,6 @@ export class ContractService {
   ): Promise<ContractWithRelations> {
     const contract = await this.getContract(contractId);
 
-    if (contract.status !== ContractStatus.FUNDING) {
-      throw new ConflictError(`Cannot fund contract in ${contract.status} status`);
-    }
-
     const party = contract.parties.find(p => p.walletId === walletId);
     if (!party) {
       throw new ForbiddenError('Wallet is not a party to this contract');
@@ -264,6 +260,9 @@ export class ContractService {
     if (party.funded) {
       throw new ConflictError('This party has already funded');
     }
+
+    // Validate funding is allowed based on contract type and party role
+    this.validateFundingAllowed(contract, party);
 
     // Verify amount
     if (amount !== parseFloat(party.stakeAmount.toString())) {
@@ -385,6 +384,41 @@ export class ContractService {
     if (new Date(dto.expiresAt) <= new Date()) {
       throw new ValidationError('Expiration date must be in the future');
     }
+  }
+
+  /**
+   * Validate that a party is allowed to fund based on contract type, status, and role.
+   *
+   * Funding rules by contract type:
+   * - WAGER: Creator can fund immediately (in PROPOSED state) to show "skin in the game".
+   *          Counterparty must accept first (wait for FUNDING state).
+   * - ESCROW, MILESTONE, CUSTOM: All parties must accept before anyone can fund (FUNDING state).
+   *
+   * This design allows flexibility for future contract types (e.g., crowdfunding goals
+   * where multiple contributors can fund before a threshold is reached).
+   */
+  private validateFundingAllowed(contract: ContractWithRelations, party: ContractParty): void {
+    const { status, type } = contract;
+    const { role } = party;
+
+    // FUNDING state always allows any party to fund (standard flow)
+    if (status === ContractStatus.FUNDING) {
+      return;
+    }
+
+    // WAGER type: Creator can fund in PROPOSED state (before counterparty accepts)
+    if (type === ContractType.WAGER && status === ContractStatus.PROPOSED) {
+      if (role === PartyRole.CREATOR) {
+        return; // Creator can fund immediately for wagers
+      }
+      // Counterparty must wait until they've accepted (contract moves to FUNDING)
+      throw new ConflictError(
+        'Counterparty must accept the wager before funding. Please accept the contract first.'
+      );
+    }
+
+    // All other cases: funding not allowed in current state
+    throw new ConflictError(`Cannot fund contract in ${status} status`);
   }
 }
 
