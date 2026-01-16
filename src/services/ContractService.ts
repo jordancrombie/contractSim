@@ -10,6 +10,7 @@ import {
   EscrowType,
   SettlementType,
   PartyRole,
+  OutcomeType,
   Prisma,
 } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
@@ -100,17 +101,31 @@ export class ContractService {
         fundingDeadline,
         idempotencyKey: dto.idempotencyKey,
         parties: {
-          create: dto.parties.map((p, index) => ({
-            walletId: p.walletId,
-            bankId: p.bankId,
-            displayName: p.displayName,
-            role: p.role,
-            stakeAmount: new Prisma.Decimal(p.stakeAmount),
-            stakeCurrency: env.contracts.defaultCurrency,
-            // Creator auto-accepts
-            accepted: p.walletId === creatorWalletId,
-            acceptedAt: p.walletId === creatorWalletId ? new Date() : null,
-          })),
+          create: dto.parties.map((p, index) => {
+            // For WAGER contracts, set opposite outcome mappings:
+            // - Creator bets "true" (wins if condition is true)
+            // - Counterparty bets "false" (wins if condition is false)
+            const isCreator = p.role === PartyRole.CREATOR;
+            const outcomeMapping = dto.type === ContractType.WAGER
+              ? {
+                  outcomeIfTrue: isCreator ? OutcomeType.WINNER : OutcomeType.LOSER,
+                  outcomeIfFalse: isCreator ? OutcomeType.LOSER : OutcomeType.WINNER,
+                }
+              : {};
+
+            return {
+              walletId: p.walletId,
+              bankId: p.bankId,
+              displayName: p.displayName,
+              role: p.role,
+              stakeAmount: new Prisma.Decimal(p.stakeAmount),
+              stakeCurrency: env.contracts.defaultCurrency,
+              // Creator auto-accepts
+              accepted: p.walletId === creatorWalletId,
+              acceptedAt: p.walletId === creatorWalletId ? new Date() : null,
+              ...outcomeMapping,
+            };
+          }),
         },
         conditions: {
           create: dto.conditions.map((c, index) => ({
