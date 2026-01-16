@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **ContractExpirationService** - Automatic contract expiration with BSIM escrow return
+  - Runs every minute to check for contracts past their `fundingDeadline`
+  - Returns escrows to BSIM via `POST /api/escrow/:id/return` for any funded parties
+  - Transitions contracts from PROPOSED/FUNDING to EXPIRED
+  - Sends `contract.expired` webhook to both parties with their `refund_amount`
+  - Includes `forceExpire(contractId)` method for admin use on stuck contracts
+
 ### Fixed
 - **WAGER contracts now correctly set opposite outcome mappings for parties**
   - Creator: `outcomeIfTrue=WINNER`, `outcomeIfFalse=LOSER` (bets condition is true)
