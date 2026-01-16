@@ -176,51 +176,149 @@ export class WebhookService {
     });
   }
 
-  async notifyContractAccepted(contractId: string, title: string, acceptedBy: { walletId: string; displayName: string }, creator: { walletId: string }): Promise<void> {
+  async notifyContractAccepted(
+    contractId: string,
+    title: string,
+    acceptedBy: { walletId: string; displayName: string },
+    recipientWalletId: string
+  ): Promise<void> {
     await this.sendToWsim('contract.accepted', {
       contract_id: contractId,
       title,
+      recipient_wallet_id: recipientWalletId,
       accepted_by: {
         wallet_id: acceptedBy.walletId,
         display_name: acceptedBy.displayName,
       },
-      creator: {
-        wallet_id: creator.walletId,
+    });
+  }
+
+  async notifyContractFunded(
+    contractId: string,
+    title: string,
+    fundedBy: { walletId: string; displayName: string },
+    recipientWalletId: string,
+    contractStatus: 'funding' | 'active'
+  ): Promise<void> {
+    await this.sendToWsim('contract.funded', {
+      contract_id: contractId,
+      title,
+      recipient_wallet_id: recipientWalletId,
+      funded_by: {
+        wallet_id: fundedBy.walletId,
+        display_name: fundedBy.displayName,
+      },
+      contract_status: contractStatus,
+    });
+  }
+
+  async notifyContractOutcome(
+    contractId: string,
+    title: string,
+    winner: { walletId: string; displayName: string },
+    loser: { walletId: string; displayName: string }
+  ): Promise<void> {
+    // Send webhook to winner
+    await this.sendToWsim('contract.outcome', {
+      contract_id: contractId,
+      title,
+      recipient_wallet_id: winner.walletId,
+      outcome: 'won',
+      opponent: {
+        wallet_id: loser.walletId,
+        display_name: loser.displayName,
+      },
+    });
+
+    // Send webhook to loser
+    await this.sendToWsim('contract.outcome', {
+      contract_id: contractId,
+      title,
+      recipient_wallet_id: loser.walletId,
+      outcome: 'lost',
+      opponent: {
+        wallet_id: winner.walletId,
+        display_name: winner.displayName,
       },
     });
   }
 
-  async notifyContractFunded(contractId: string, title: string, parties: { walletId: string }[]): Promise<void> {
-    await this.sendToWsim('contract.funded', {
-      contract_id: contractId,
-      title,
-      parties: parties.map(p => ({ wallet_id: p.walletId })),
-    });
-  }
-
-  async notifyContractOutcome(contractId: string, title: string, winnerId: string | null, loserId: string | null): Promise<void> {
-    await this.sendToWsim('contract.outcome', {
-      contract_id: contractId,
-      title,
-      winner_wallet_id: winnerId,
-      loser_wallet_id: loserId,
-    });
-  }
-
-  async notifyContractSettled(contractId: string, title: string, winnerId: string, amount: string): Promise<void> {
+  async notifyContractSettled(
+    contractId: string,
+    title: string,
+    winnerWalletId: string,
+    loserWalletId: string,
+    winnerAmount: string,
+    currency: string
+  ): Promise<void> {
+    // Send webhook to winner
     await this.sendToWsim('contract.settled', {
       contract_id: contractId,
       title,
-      winner_wallet_id: winnerId,
-      amount,
+      recipient_wallet_id: winnerWalletId,
+      outcome: 'won',
+      amount: winnerAmount,
+      currency,
+    });
+
+    // Send webhook to loser
+    await this.sendToWsim('contract.settled', {
+      contract_id: contractId,
+      title,
+      recipient_wallet_id: loserWalletId,
+      outcome: 'lost',
+      amount: '0.00',
+      currency,
     });
   }
 
-  async notifyContractCancelled(contractId: string, title: string, parties: { walletId: string }[]): Promise<void> {
+  async notifyContractCancelled(
+    contractId: string,
+    title: string,
+    cancelledBy: { walletId: string; displayName: string },
+    recipientWalletId: string
+  ): Promise<void> {
     await this.sendToWsim('contract.cancelled', {
       contract_id: contractId,
       title,
-      parties: parties.map(p => ({ wallet_id: p.walletId })),
+      recipient_wallet_id: recipientWalletId,
+      cancelled_by: {
+        wallet_id: cancelledBy.walletId,
+        display_name: cancelledBy.displayName,
+      },
+    });
+  }
+
+  async notifyContractExpired(
+    contractId: string,
+    title: string,
+    recipientWalletId: string,
+    refundAmount: string
+  ): Promise<void> {
+    await this.sendToWsim('contract.expired', {
+      contract_id: contractId,
+      title,
+      recipient_wallet_id: recipientWalletId,
+      refund_amount: refundAmount,
+    });
+  }
+
+  async notifyContractDisputed(
+    contractId: string,
+    title: string,
+    disputedBy: { walletId: string; displayName: string },
+    recipientWalletId: string,
+    reason: string
+  ): Promise<void> {
+    await this.sendToWsim('contract.disputed', {
+      contract_id: contractId,
+      title,
+      recipient_wallet_id: recipientWalletId,
+      disputed_by: {
+        wallet_id: disputedBy.walletId,
+        display_name: disputedBy.displayName,
+      },
+      reason,
     });
   }
 }

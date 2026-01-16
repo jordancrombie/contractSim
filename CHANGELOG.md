@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-01-16
+
+### Changed
+- **WSIM webhook notification routing overhaul** per agreed spec with WSIM team
+  - `contract.accepted`: Now includes `recipient_wallet_id` at root level (creator's wallet)
+  - `contract.funded`: Now sends to OTHER party (not funder) with `funded_by` and `contract_status`
+  - `contract.cancelled`: Now includes `cancelled_by` with actor details
+  - `contract.outcome`: Now sends 2 webhooks (winner gets "won", loser gets "lost") with `opponent` field
+  - `contract.settled`: Now sends 2 webhooks to both parties with different `outcome` and `amount` values
+
+### Added
+- `contract.expired` webhook: Sends 2 webhooks (one per party) with `refund_amount`
+- `contract.disputed` webhook: Sends to other party with `disputed_by` and `reason`
+- Settlement completion now triggers `contract.settled` webhook to WSIM
+- Contract expiration now triggers `contract.expired` webhook to WSIM
+
+### Fixed
+- `notifyContractCancelled` now called when contract is cancelled
+- Settlement webhook handler now notifies WSIM (was TODO)
+- Escrow expiration handler now notifies both parties
+
 ## [1.3.0] - 2026-01-16
 
 ### Fixed

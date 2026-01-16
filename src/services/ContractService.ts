@@ -250,7 +250,7 @@ export class ContractService {
         contractId,
         contract.title,
         { walletId: acceptingParty.walletId, displayName: acceptingParty.displayName },
-        { walletId: creator.walletId }
+        creator.walletId
       );
     }
 
@@ -328,12 +328,18 @@ export class ContractService {
         ContractStatus.ACTIVE,
         'system'
       );
+    }
 
-      // Notify all parties that contract is now active
+    // Notify the OTHER party (not the funder) that funding occurred
+    const fundingParty = updatedContract.parties.find(p => p.walletId === walletId);
+    const otherParty = updatedContract.parties.find(p => p.walletId !== walletId);
+    if (fundingParty && otherParty) {
       await webhookService.notifyContractFunded(
         contractId,
         updatedContract.title,
-        updatedContract.parties.map(p => ({ walletId: p.walletId }))
+        { walletId: fundingParty.walletId, displayName: fundingParty.displayName },
+        otherParty.walletId,
+        allFunded ? 'active' : 'funding'
       );
     }
 
@@ -358,6 +364,17 @@ export class ContractService {
     }
 
     await this.transitionStatus(contractId, ContractStatus.CANCELLED, walletId);
+
+    // Notify the OTHER party (not the canceller) that contract was cancelled
+    const otherParty = contract.parties.find(p => p.walletId !== walletId);
+    if (otherParty) {
+      await webhookService.notifyContractCancelled(
+        contractId,
+        contract.title,
+        { walletId: party.walletId, displayName: party.displayName },
+        otherParty.walletId
+      );
+    }
 
     return this.getContract(contractId);
   }
