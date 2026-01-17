@@ -289,7 +289,8 @@ export class ContractService {
     contractId: string,
     walletId: string,
     escrowId: string,
-    amount: number
+    amount: number,
+    bsimUserId?: string
   ): Promise<ContractWithRelations> {
     const contract = await this.getContract(contractId);
 
@@ -319,6 +320,7 @@ export class ContractService {
         funded: true,
         fundedAt: new Date(),
         escrowId,
+        bsimUserId,
       },
     });
 
