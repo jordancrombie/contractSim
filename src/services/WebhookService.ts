@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import prisma from '../config/database';
 import { env } from '../config/env';
 import { WebhookStatus } from '@prisma/client';
@@ -79,14 +80,28 @@ export class WebhookService {
     if (!webhook) return;
 
     try {
+      const payloadString = JSON.stringify(webhook.payload);
+      const secret = this.getWebhookSecretForDestination(webhook.destination);
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Webhook-Event': webhook.eventType,
+        'X-API-Key': this.getApiKeyForDestination(webhook.destination),
+      };
+
+      // Add HMAC signature if secret is configured
+      if (secret) {
+        const signature = crypto
+          .createHmac('sha256', secret)
+          .update(payloadString)
+          .digest('hex');
+        headers['X-Webhook-Signature'] = signature;
+      }
+
       const response = await fetch(webhook.url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Event': webhook.eventType,
-          'X-API-Key': this.getApiKeyForDestination(webhook.destination),
-        },
-        body: JSON.stringify(webhook.payload),
+        headers,
+        body: payloadString,
       });
 
       const responseBody = await response.text();
@@ -158,6 +173,22 @@ export class WebhookService {
         return env.apiKeys.transfersim;
       default:
         return '';
+    }
+  }
+
+  /**
+   * Get webhook secret for destination service (for HMAC signing)
+   */
+  private getWebhookSecretForDestination(destination: string): string | undefined {
+    switch (destination) {
+      case 'wsim':
+        return env.webhookSecrets.wsim;
+      case 'bsim':
+        return env.webhookSecrets.bsim;
+      case 'transfersim':
+        return env.webhookSecrets.transfersim;
+      default:
+        return undefined;
     }
   }
 

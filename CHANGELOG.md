@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-01-17
+
+### Added
+- **Outbound webhooks now signed with HMAC**
+  - WebhookService adds `X-Webhook-Signature` header to all outbound webhooks
+  - Uses `WSIM_WEBHOOK_SECRET` env var for signing webhooks to WSIM
+  - WSIM can now verify webhook authenticity using HMAC-SHA256
+  - Bug: Webhooks were sent without signature, causing WSIM to reject them
+
 ## [1.5.5] - 2026-01-16
 
 ### Fixed
