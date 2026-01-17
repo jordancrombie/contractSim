@@ -875,8 +875,16 @@ components:
                 type: string
               teams:
                 type: array
+                description: "Teams with id (for predicateValue) and name (for display)"
                 items:
-                  type: string
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: "Technical identifier to use as predicateValue (e.g., team_a)"
+                    name:
+                      type: string
+                      description: "Display name (e.g., Team A)"
               starts_at:
                 type: string
                 format: date-time
@@ -897,8 +905,16 @@ components:
           type: string
         teams:
           type: array
+          description: "Teams with id (for predicateValue) and name (for display)"
           items:
-            type: string
+            type: object
+            properties:
+              id:
+                type: string
+                description: "Technical identifier to use as predicateValue (e.g., team_a)"
+              name:
+                type: string
+                description: "Display name (e.g., Team A)"
         starts_at:
           type: string
           format: date-time

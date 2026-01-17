@@ -34,7 +34,11 @@ router.get('/test/events/upcoming', async (req: Request, res: Response) => {
     events: events.map(e => ({
       event_id: e.eventId,
       title: e.title,
-      teams: [e.teamA, e.teamB],
+      // Return both id (for predicateValue) and name (for display)
+      teams: [
+        { id: 'team_a', name: e.teamA },
+        { id: 'team_b', name: e.teamB },
+      ],
       starts_at: e.startsAt.toISOString(),
       ends_at: e.endsAt.toISOString(),
       status: e.status.toLowerCase(),
@@ -58,7 +62,11 @@ router.get('/test/events/:eventId', async (req: Request, res: Response) => {
     oracle_id: 'test_oracle',
     event_id: event.eventId,
     title: event.title,
-    teams: [event.teamA, event.teamB],
+    // Return both id (for predicateValue) and name (for display)
+    teams: [
+      { id: 'team_a', name: event.teamA },
+      { id: 'team_b', name: event.teamB },
+    ],
     starts_at: event.startsAt.toISOString(),
     ends_at: event.endsAt.toISOString(),
     status: event.status.toLowerCase(),
