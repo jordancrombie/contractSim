@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { env } from '../config/env';
 import { auditService } from './AuditService';
 import { webhookService } from './WebhookService';
+import { settlementService } from './SettlementService';
 import {
   Contract,
   ContractParty,
@@ -343,6 +344,14 @@ export class ContractService {
         ContractStatus.ACTIVE,
         'system'
       );
+
+      // Check if conditions already resolved (race condition: oracle event may have
+      // completed before contract became ACTIVE). If so, trigger settlement now.
+      try {
+        await settlementService.checkAndSettle(contractId);
+      } catch (err) {
+        console.error(`[ContractService] Settlement check failed for ${contractId}:`, err);
+      }
     }
 
     // Notify the OTHER party (not the funder) that funding occurred

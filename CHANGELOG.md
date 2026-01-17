@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-01-16
+
+### Fixed
+- **Settlement now triggers when contract becomes ACTIVE with already-resolved conditions**
+  - Race condition: Oracle event could complete before contract funded (FUNDING → ACTIVE)
+  - Settlement check only ran on condition resolution, missing already-resolved contracts
+  - Now calls `checkAndSettle()` after ACTIVE transition in both:
+    - `ContractService.recordFunding()`
+    - `webhookRoutes.handleEscrowHeld()`
+
 ## [1.5.1] - 2026-01-16
 
 ### Fixed
