@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-01-17
+
+### Fixed
+- **CRITICAL: Condition predicate comparison now normalizes strings**
+  - Bug: Oracle result uses `team_a`/`team_b` format (lowercase, underscore)
+  - WSIM sends predicateValue as `Team A`/`Team B` format (title case, space)
+  - Exact string comparison always returned false → ALL contracts gave win to counterparty
+  - Now normalizes both values (lowercase, spaces→underscores) before comparing
+  - This was causing incorrect settlement outcomes for all wager contracts
+
 ## [1.6.1] - 2026-01-17
 
 ### Fixed

@@ -213,12 +213,21 @@ export class TestOracleService {
       const resultValue = (result as Record<string, unknown>)[condition.predicateField];
       let matched = false;
 
+      // Normalize strings for comparison: lowercase, replace spaces with underscores
+      // This handles format mismatches like "Team A" vs "team_a"
+      const normalizeForComparison = (val: unknown): string => {
+        return String(val).toLowerCase().replace(/\s+/g, '_');
+      };
+
+      const normalizedResult = normalizeForComparison(resultValue);
+      const normalizedPredicate = normalizeForComparison(condition.predicateValue);
+
       switch (condition.predicateOperator) {
         case 'EQUALS':
-          matched = String(resultValue) === condition.predicateValue;
+          matched = normalizedResult === normalizedPredicate;
           break;
         case 'NOT_EQUALS':
-          matched = String(resultValue) !== condition.predicateValue;
+          matched = normalizedResult !== normalizedPredicate;
           break;
         // Add more operators as needed
       }
