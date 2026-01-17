@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-01-17
+
+### Fixed
+- **Graceful shutdown handlers added**
+  - Server now handles SIGTERM/SIGINT signals properly
+  - Stops TestOracleService and ContractExpirationService intervals
+  - Disconnects Prisma client to release database connections
+  - 30-second timeout prevents hanging on shutdown
+  - Prevents connection leaks and potential memory issues on restart
+
+- **Prisma singleton pattern now works in all environments**
+  - Previously only cached instance in non-production (development)
+  - Production could create multiple PrismaClient instances
+  - Now uses global cache consistently across all environments
+
+- **Interval services now have mutex protection**
+  - TestOracleService.tick() and ContractExpirationService.checkExpiredContracts()
+  - Prevents overlapping executions if processing takes longer than interval (60s)
+  - Logs skip message when previous execution still running
+
+### Changed
+- Database connection pool can now be configured via DATABASE_URL query params
+  - `?connection_limit=10&pool_timeout=30` in DATABASE_URL
+
 ## [1.6.0] - 2026-01-17
 
 ### Added

@@ -8,6 +8,7 @@ const CHECK_INTERVAL_MS = 60 * 1000; // Check every minute
 
 export class ContractExpirationService {
   private intervalId: NodeJS.Timeout | null = null;
+  private isProcessing = false; // Mutex to prevent overlapping checks
 
   /**
    * Start the expiration checker
@@ -42,6 +43,13 @@ export class ContractExpirationService {
    * Check for and process expired contracts
    */
   private async checkExpiredContracts(): Promise<void> {
+    // Prevent overlapping executions
+    if (this.isProcessing) {
+      console.log('[ContractExpiration] Previous check still running, skipping');
+      return;
+    }
+
+    this.isProcessing = true;
     try {
       const now = new Date();
 
@@ -65,6 +73,8 @@ export class ContractExpirationService {
       }
     } catch (err) {
       console.error('[ContractExpiration] Check error:', err);
+    } finally {
+      this.isProcessing = false;
     }
   }
 

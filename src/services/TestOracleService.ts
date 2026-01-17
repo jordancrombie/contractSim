@@ -23,6 +23,7 @@ interface TestGame {
 
 export class TestOracleService {
   private intervalId: NodeJS.Timeout | null = null;
+  private isProcessing = false; // Mutex to prevent overlapping ticks
 
   /**
    * Initialize the test oracle in the database
@@ -78,6 +79,13 @@ export class TestOracleService {
    * Main tick - check and update games
    */
   private async tick(): Promise<void> {
+    // Prevent overlapping executions
+    if (this.isProcessing) {
+      console.log('[TestOracle] Previous tick still running, skipping');
+      return;
+    }
+
+    this.isProcessing = true;
     try {
       const now = new Date();
       const minute = now.getMinutes() % GAME_INTERVAL_MINUTES;
@@ -92,6 +100,8 @@ export class TestOracleService {
 
     } catch (err) {
       console.error('[TestOracle] Tick error:', err);
+    } finally {
+      this.isProcessing = false;
     }
   }
 
