@@ -120,6 +120,7 @@ async function handleEscrowHeld(data: {
       where: { id: party.id },
       data: {
         escrowId: data.escrow_id,
+        bsimUserId: data.user_id, // Store BSIM user ID for settlement
         funded: true,
         fundedAt: new Date(),
       },
