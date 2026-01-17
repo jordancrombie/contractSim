@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5] - 2026-01-16
+
+### Fixed
+- **Fix `toFixed is not a function` error in settlement webhook handler**
+  - Bug: `data.amount` from TransferSim webhook is a string, not a number
+  - Calling `.toFixed(2)` on a string throws TypeError
+  - Now converts to number first: `Number(data.amount).toFixed(2)`
+
 ## [1.5.4] - 2026-01-16
 
 ### Fixed

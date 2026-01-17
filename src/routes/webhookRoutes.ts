@@ -260,7 +260,7 @@ async function handleSettlementCompleted(data: {
       contract.title,
       data.to_wallet_id,
       data.from_wallet_id,
-      data.amount.toFixed(2),
+      Number(data.amount).toFixed(2),
       contract.currency
     );
   }
