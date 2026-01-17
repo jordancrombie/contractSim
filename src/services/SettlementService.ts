@@ -43,6 +43,13 @@ export class SettlementService {
       return;
     }
 
+    // Validate both parties have BSIM user IDs (required for TransferSim)
+    if (!winner.bsimUserId || !loser.bsimUserId) {
+      throw new Error(
+        `Contract ${contractId} missing BSIM user ID - winner: ${winner.bsimUserId}, loser: ${loser.bsimUserId}`
+      );
+    }
+
     // Transition to SETTLING
     await prisma.contract.update({
       where: { id: contractId },
@@ -75,10 +82,12 @@ export class SettlementService {
           walletId: loser.walletId,
           bankId: loser.bankId,
           escrowId: loser.escrowId!,
+          userId: loser.bsimUserId!, // BSIM user ID for escrow release
         },
         to: {
           walletId: winner.walletId,
           bankId: winner.bankId,
+          userId: winner.bsimUserId!, // BSIM user ID for credit
         },
         amount: totalPot,
         currency: contract.currency,
@@ -210,6 +219,7 @@ export class SettlementService {
       role: string;
       stakeAmount: { toString(): string };
       escrowId: string | null;
+      bsimUserId: string | null;
       outcomeIfTrue: string;
       outcomeIfFalse: string;
     }[];

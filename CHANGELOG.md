@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-01-16
+
+### Added
+- **BSIM user ID now stored on ContractParty for settlements**
+  - TransferSim API requires `user_id` for both `from` and `to` parties
+  - `bsimUserId` is captured during funding (from WSIM's `bsim_user_id` field)
+  - Stored in new `bsimUserId` column on `ContractParty` table
+  - Passed to TransferSim in settlement requests
+
+### Changed
+- `TransferSimClient.createSettlement()` now requires `userId` in both `from` and `to` objects
+- `SettlementService` validates both parties have `bsimUserId` before attempting settlement
+
 ## [1.5.2] - 2026-01-16
 
 ### Fixed

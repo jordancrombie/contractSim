@@ -8,10 +8,12 @@ interface SettlementRequest {
     walletId: string;
     bankId: string;
     escrowId: string;
+    userId: string; // BSIM user ID for escrow release
   };
   to: {
     walletId: string;
     bankId: string;
+    userId: string; // BSIM user ID for credit
   };
   amount: number;
   currency: string;
@@ -64,10 +66,12 @@ export class TransferSimClient {
           wallet_id: request.from.walletId,
           bank_id: request.from.bankId,
           escrow_id: request.from.escrowId,
+          user_id: request.from.userId,
         },
         to: {
           wallet_id: request.to.walletId,
           bank_id: request.to.bankId,
+          user_id: request.to.userId,
         },
         amount: request.amount,
         currency: request.currency,
