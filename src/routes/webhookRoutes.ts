@@ -141,6 +141,14 @@ async function handleEscrowHeld(data: {
         },
       });
       console.log(`[Webhook] Contract ${data.contract_id} is now ACTIVE`);
+
+      // Check if conditions already resolved (race condition: oracle event may have
+      // completed before contract became ACTIVE). If so, trigger settlement now.
+      try {
+        await settlementService.checkAndSettle(data.contract_id);
+      } catch (err) {
+        console.error(`[Webhook] Settlement check failed for ${data.contract_id}:`, err);
+      }
     }
   }
 }

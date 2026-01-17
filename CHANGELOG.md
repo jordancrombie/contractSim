@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-01-16
+
+### Fixed
+- **Settlement now triggers when contract becomes ACTIVE with already-resolved conditions**
+  - Race condition: Oracle event could complete before contract funded (FUNDING → ACTIVE)
+  - Settlement check only ran on condition resolution, missing already-resolved contracts
+  - Now calls `checkAndSettle()` after ACTIVE transition in both:
+    - `ContractService.recordFunding()`
+    - `webhookRoutes.handleEscrowHeld()`
+
+## [1.5.1] - 2026-01-16
+
+### Fixed
+- **Webhook signature verification now handles `sha256=` prefix** (GitHub-style signatures)
+  - TransferSim sends `sha256=<hex>` (71 chars), ContractSim expected raw `<hex>` (64 chars)
+  - Now strips `sha256=` prefix before comparison
+  - Added length check before `timingSafeEqual` to prevent `RangeError`
+
+### Changed
+- **Settlement escrow flow corrected for cross-bank scenarios**
+  - Loser's escrow: Now handled by TransferSim (calls BSIM `/release` → credits winner)
+  - Winner's escrow: Now uses `/return` instead of `/release` (stake returned to them)
+  - Previously both escrows used `/release` which was incorrect for cross-bank settlements
+
 ## [1.5.0] - 2026-01-16
 
 ### Added

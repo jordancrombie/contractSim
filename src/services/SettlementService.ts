@@ -103,21 +103,16 @@ export class SettlementService {
         },
       });
 
-      // Release loser's escrow
-      await bsimClient.releaseEscrow(loser.escrowId!, {
-        releaseType: 'settlement',
-        transferReference: settlement.transfer_id,
-        contractId,
-        reason: 'contract_settlement',
-      });
+      // NOTE: Loser's escrow is handled by TransferSim internally.
+      // TransferSim calls BSIM /release to deduct from loser, then credits winner.
 
-      // Release winner's escrow (their stake returned + winnings come from transfer)
-      await bsimClient.releaseEscrow(winner.escrowId!, {
-        releaseType: 'settlement',
-        transferReference: settlement.transfer_id,
+      // Return winner's escrow (their original stake goes back to them)
+      // The winnings come from TransferSim's credit to the winner's account.
+      await bsimClient.returnEscrow(
+        winner.escrowId!,
         contractId,
-        reason: 'contract_settlement',
-      });
+        'contract_settlement_winner_stake_return'
+      );
 
       console.log(`[Settlement] Contract ${contractId} settlement initiated: ${settlement.settlement_id}`);
 
